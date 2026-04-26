@@ -1,76 +1,136 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts';
-import { Warehouse, Package, TrendingUp, DollarSign } from 'lucide-react';
+  customerApi,
+  formatError,
+  InboundReceiptResponse,
+  InventoryResponse,
+  InventorySummaryResponse,
+  InventoryValueResponse,
+  OutboundIssueResponse,
+  TopProductResponse,
+} from '@/lib/api';
+import { formatCurrency, formatDate, formatNumber, statusClass } from '@/lib/format';
+import { DollarSign, Package, TrendingUp, Warehouse } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-const inventoryData = [
-  { name: 'Warehouse A', value: 65 },
-  { name: 'Warehouse B', value: 45 },
-  { name: 'Warehouse C', value: 38 },
-  { name: 'Warehouse D', value: 52 },
-];
-
-const salesData = [
-  { month: 'Jan', sales: 4000, revenue: 2400 },
-  { month: 'Feb', sales: 3000, revenue: 1398 },
-  { month: 'Mar', sales: 2000, revenue: 9800 },
-  { month: 'Apr', sales: 2780, revenue: 3908 },
-  { month: 'May', sales: 1890, revenue: 4800 },
-  { month: 'Jun', sales: 2390, revenue: 3800 },
-];
-
-const COLORS = [
-  'hsl(var(--color-chart-1))',
-  'hsl(var(--color-chart-2))',
-  'hsl(var(--color-chart-3))',
-  'hsl(var(--color-chart-4))',
-];
+function issueTotal(issue: OutboundIssueResponse) {
+  return issue.details.reduce((sum, detail) => sum + Number(detail.sellingPrice || 0) * detail.quantity, 0);
+}
 
 export default function Dashboard() {
+  const [inventory, setInventory] = useState<InventoryResponse[]>([]);
+  const [summary, setSummary] = useState<InventorySummaryResponse[]>([]);
+  const [inventoryValue, setInventoryValue] = useState<InventoryValueResponse | null>(null);
+  const [topProducts, setTopProducts] = useState<TopProductResponse[]>([]);
+  const [inbound, setInbound] = useState<InboundReceiptResponse[]>([]);
+  const [outbound, setOutbound] = useState<OutboundIssueResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const [inventoryData, summaryData, valueData, topProductData, inboundData, outboundData] = await Promise.all([
+          customerApi.inventory(),
+          customerApi.inventorySummary(),
+          customerApi.inventoryValue(),
+          customerApi.topProducts(new Date().toISOString().slice(0, 7), 5),
+          customerApi.inboundReceipts(),
+          customerApi.outboundIssues(),
+        ]);
+        setInventory(inventoryData);
+        setSummary(summaryData);
+        setInventoryValue(valueData);
+        setTopProducts(topProductData);
+        setInbound(inboundData.content || []);
+        setOutbound(outboundData.content || []);
+      } catch (err) {
+        setError(formatError(err));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, []);
+
+  const warehouseCount = new Set(inventory.map((item) => item.warehouseId)).size;
+  const totalStock = summary.reduce((sum, item) => sum + item.totalQuantity, 0);
+  const completedOutbound = outbound.filter((issue) => issue.status === 'Completed');
+  const outboundRevenue = completedOutbound.reduce((sum, issue) => sum + issueTotal(issue), 0);
+
+  const stockByWarehouse = useMemo(() => {
+    const map = new Map<string, number>();
+    inventory.forEach((item) => map.set(item.warehouseName, (map.get(item.warehouseName) || 0) + item.quantity));
+    return Array.from(map, ([name, quantity]) => ({ name, quantity }));
+  }, [inventory]);
+
+  const stockDistribution = useMemo(
+    () => summary.slice(0, 6).map((item) => ({ name: item.productName, value: item.totalQuantity })),
+    [summary]
+  );
+
+  const activities = useMemo(() => {
+    const inboundActivities = inbound.map((receipt) => ({
+      id: `in-${receipt.receiptId}`,
+      type: 'Inbound',
+      ref: `Receipt #${receipt.receiptId}`,
+      partner: receipt.supplierName,
+      warehouse: receipt.warehouseName,
+      status: receipt.status,
+      date: receipt.receiptDate || receipt.createdAt,
+    }));
+    const outboundActivities = outbound.map((issue) => ({
+      id: `out-${issue.issueId}`,
+      type: 'Outbound',
+      ref: `Issue #${issue.issueId}`,
+      partner: issue.buyerName,
+      warehouse: issue.warehouseName,
+      status: issue.status,
+      date: issue.issueDate || issue.createdAt,
+    }));
+    return [...inboundActivities, ...outboundActivities]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 8);
+  }, [inbound, outbound]);
+
   return (
-    <DashboardLayout headerTitle="Dashboard" headerSubtitle="Welcome back! Here's your warehouse overview.">
-      <div className="p-8 space-y-8">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <DashboardLayout headerTitle="Dashboard" headerSubtitle="Live operational overview from the backend.">
+      <div className="space-y-8 p-8">
+        {error && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Rented Warehouses</CardTitle>
-                <Warehouse className="w-5 h-5 text-primary" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Warehouses in Use</CardTitle>
+                <Warehouse className="h-5 w-5 text-primary" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">4</div>
-              <p className="text-xs text-muted-foreground mt-1">Active warehouses</p>
+              <div className="text-3xl font-bold">{loading ? '-' : warehouseCount}</div>
+              <p className="mt-1 text-xs text-muted-foreground">Derived from inventory batches</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Products</CardTitle>
-                <Package className="w-5 h-5 text-primary" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Products</CardTitle>
+                <Package className="h-5 w-5 text-primary" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">1,234</div>
-              <p className="text-xs text-muted-foreground mt-1">SKUs in stock</p>
+              <div className="text-3xl font-bold">{loading ? '-' : summary.length}</div>
+              <p className="mt-1 text-xs text-muted-foreground">Products with stock summary</p>
             </CardContent>
           </Card>
 
@@ -78,129 +138,140 @@ export default function Dashboard() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Stock</CardTitle>
-                <TrendingUp className="w-5 h-5 text-primary" />
+                <TrendingUp className="h-5 w-5 text-primary" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">45.2K</div>
-              <p className="text-xs text-muted-foreground mt-1">Units in warehouses</p>
+              <div className="text-3xl font-bold">{loading ? '-' : formatNumber(totalStock)}</div>
+              <p className="mt-1 text-xs text-muted-foreground">Units across all batches</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Revenue</CardTitle>
-                <DollarSign className="w-5 h-5 text-primary" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Inventory Value</CardTitle>
+                <DollarSign className="h-5 w-5 text-primary" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">$125.4K</div>
-              <p className="text-xs text-muted-foreground mt-1">Current month</p>
+              <div className="text-3xl font-bold">{loading ? '-' : formatCurrency(inventoryValue?.totalValue)}</div>
+              <p className="mt-1 text-xs text-muted-foreground">Outbound revenue: {formatCurrency(outboundRevenue)}</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Sales Over Time</CardTitle>
-              <CardDescription>Monthly sales and revenue trends</CardDescription>
+              <CardTitle>Stock by Warehouse</CardTitle>
+              <CardDescription>Current inventory grouped by warehouse.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={salesData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--color-border))" />
-                  <XAxis stroke="hsl(var(--color-muted-foreground))" />
-                  <YAxis stroke="hsl(var(--color-muted-foreground))" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--color-card))',
-                      border: '1px solid hsl(var(--color-border))',
-                      borderRadius: 'calc(var(--radius))',
-                    }}
-                  />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="sales"
-                    stroke="hsl(var(--color-chart-1))"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="hsl(var(--color-chart-2))"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {stockByWarehouse.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No stock data available.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stockByWarehouse}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="quantity" fill="var(--primary)" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Inventory Distribution</CardTitle>
-              <CardDescription>Stock levels across warehouses</CardDescription>
+              <CardTitle>Product Stock Distribution</CardTitle>
+              <CardDescription>Top products by available quantity.</CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center justify-center">
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={inventoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value }) => `${name}: ${value}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {inventoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--color-card))',
-                      border: '1px solid hsl(var(--color-border))',
-                      borderRadius: 'calc(var(--radius))',
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <CardContent>
+              {stockDistribution.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No product stock data available.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={stockDistribution} dataKey="value" nameKey="name" outerRadius={90} label>
+                      {stockDistribution.map((entry, index) => (
+                        <Cell key={entry.name} fill={['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2'][index % 6]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest updates from your warehouses</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                { action: 'Stock received', warehouse: 'Warehouse A', time: '2 hours ago' },
-                { action: 'Order shipped', warehouse: 'Warehouse B', time: '4 hours ago' },
-                { action: 'Inventory audit', warehouse: 'Warehouse C', time: '1 day ago' },
-                { action: 'Capacity reached 95%', warehouse: 'Warehouse D', time: '2 days ago' },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-                  <div>
-                    <p className="font-medium text-sm text-foreground">{item.action}</p>
-                    <p className="text-xs text-muted-foreground">{item.warehouse}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{item.time}</p>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Exported Products</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {topProducts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No completed outbound data this month.</p>
+              ) : (
+                <div className="space-y-3">
+                  {topProducts.map((product) => (
+                    <div key={product.productId} className="flex items-center justify-between rounded-md border p-3">
+                      <div>
+                        <p className="font-medium">{product.productName}</p>
+                        <p className="text-xs text-muted-foreground">Product #{product.productId}</p>
+                      </div>
+                      <span className="font-semibold">{formatNumber(product.totalQuantity)}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activities.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No inbound or outbound activity found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Reference</TableHead>
+                        <TableHead>Partner</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {activities.map((activity) => (
+                        <TableRow key={activity.id}>
+                          <TableCell>{activity.type}</TableCell>
+                          <TableCell className="font-medium">{activity.ref}</TableCell>
+                          <TableCell>{activity.partner}</TableCell>
+                          <TableCell>
+                            <Badge className={statusClass(activity.status)} variant="outline">
+                              {activity.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{formatDate(activity.date)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </DashboardLayout>
   );

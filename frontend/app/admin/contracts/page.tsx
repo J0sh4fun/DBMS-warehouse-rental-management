@@ -1,170 +1,310 @@
 'use client';
 
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Plus, FileText, Edit2, Download, Trash2, Calendar } from 'lucide-react';
-import { Contract, adminContracts } from '@/lib/mock-data';
-import { ContractModal } from '@/components/modals/contract-modal';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Calendar, Edit2, Plus, Trash2, X } from 'lucide-react';
+import { adminApi, formatError, LeaseContractRequest, LeaseContractResponse, WarehouseResponse } from '@/lib/api';
+
+const defaultForm: LeaseContractRequest = {
+  customerId: 0,
+  warehouseId: 0,
+  startDate: new Date().toISOString().slice(0, 10),
+  endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+  rentalPrice: 1,
+  status: 'Pending',
+  purpose: '',
+};
+
+function daysRemaining(endDate: string) {
+  return Math.ceil((new Date(endDate).getTime() - Date.now()) / 86400000);
+}
 
 export default function AdminContracts() {
-  const [contracts, setContracts] = useState<Contract[]>(adminContracts);
+  const [contracts, setContracts] = useState<LeaseContractResponse[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseResponse[]>([]);
+  const [form, setForm] = useState<LeaseContractRequest>(defaultForm);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedContract, setSelectedContract] = useState<Contract | undefined>();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  const filteredContracts = contracts.filter(
-    (contract) =>
-      (contract.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contract.contractNumber.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      (statusFilter === 'all' || contract.status === statusFilter)
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [contractData, warehouseData] = await Promise.all([adminApi.contracts(), adminApi.warehouses()]);
+      setContracts(contractData);
+      setWarehouses(warehouseData);
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const filteredContracts = useMemo(
+    () =>
+      contracts.filter(
+        (contract) =>
+          (contract.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            contract.warehouseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            String(contract.contractId).includes(searchTerm)) &&
+          (statusFilter === 'all' || contract.status === statusFilter)
+      ),
+    [contracts, searchTerm, statusFilter]
   );
 
-  const handleViewContract = (contract: Contract) => {
-    setSelectedContract(contract);
-    setIsModalOpen(true);
+  const resetForm = () => {
+    setForm(defaultForm);
+    setEditingId(null);
   };
 
-  const handleDelete = (id: string) => {
-    setContracts(contracts.filter((c) => c.id !== id));
+  const handleEdit = (contract: LeaseContractResponse) => {
+    setEditingId(contract.contractId);
+    setForm({
+      customerId: contract.customerId,
+      warehouseId: contract.warehouseId,
+      startDate: contract.startDate,
+      endDate: contract.endDate,
+      rentalPrice: contract.rentalPrice,
+      status: contract.status,
+      purpose: contract.purpose || '',
+    });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Active':
-        return 'bg-green-100 text-green-800';
-      case 'Expired':
-        return 'bg-red-100 text-red-800';
-      case 'Pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Terminated':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      if (editingId) {
+        await adminApi.updateContract(editingId, form);
+      } else {
+        await adminApi.createContract(form);
+      }
+      resetForm();
+      await load();
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleStatusChange = async (contractId: number, status: LeaseContractResponse['status']) => {
+    setError('');
+    try {
+      await adminApi.updateContractStatus(contractId, status);
+      await load();
+    } catch (err) {
+      setError(formatError(err));
+    }
+  };
+
+  const handleDelete = async (contractId: number) => {
+    if (!confirm('Delete this contract from the database?')) return;
+    setError('');
+    try {
+      await adminApi.deleteContract(contractId);
+      await load();
+    } catch (err) {
+      setError(formatError(err));
     }
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Rental Contracts</h1>
-            <p className="text-muted-foreground">Manage and track all rental contracts</p>
-          </div>
-          <Button className="bg-sidebar-primary hover:bg-sidebar-primary/90 text-sidebar-primary-foreground">
-            <Plus className="w-4 h-4 mr-2" />
-            New Contract
-          </Button>
-        </div>
+    <DashboardLayout headerTitle="Rental Contracts" headerSubtitle="Manage customer lease contracts.">
+      <div className="space-y-6 p-8">
+        {error && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {editingId ? <Edit2 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+              {editingId ? 'Edit Contract' : 'New Contract'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-6">
+              <div className="space-y-2">
+                <Label>Customer ID</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={form.customerId || ''}
+                  onChange={(event) => setForm({ ...form, customerId: Number(event.target.value) })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Warehouse</Label>
+                <select
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  value={form.warehouseId || ''}
+                  onChange={(event) => setForm({ ...form, warehouseId: Number(event.target.value) })}
+                  required
+                >
+                  <option value="">Select warehouse</option>
+                  {warehouses.map((warehouse) => (
+                    <option key={warehouse.warehouseId} value={warehouse.warehouseId}>
+                      {warehouse.warehouseId} - {warehouse.warehouseName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Input type="date" value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value })} required />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <Input type="date" value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Rental Price</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.rentalPrice}
+                  onChange={(event) => setForm({ ...form, rentalPrice: Number(event.target.value) })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <select
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  value={form.status}
+                  onChange={(event) => setForm({ ...form, status: event.target.value as LeaseContractResponse['status'] })}
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Active">Active</option>
+                  <option value="Expired">Expired</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div className="space-y-2 md:col-span-4">
+                <Label>Purpose</Label>
+                <Input value={form.purpose || ''} onChange={(event) => setForm({ ...form, purpose: event.target.value })} />
+              </div>
+              <div className="flex items-end gap-2 md:col-span-2">
+                <Button type="submit" disabled={saving}>
+                  {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Contract'}
+                </Button>
+                {editingId && (
+                  <Button type="button" variant="outline" onClick={resetForm}>
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>All Contracts</CardTitle>
-            <div className="mt-4 flex gap-4">
+            <div className="mt-4 flex flex-wrap gap-4">
               <Input
-                placeholder="Search by customer or contract number..."
+                placeholder="Search by customer, warehouse, or contract ID..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(event) => setSearchTerm(event.target.value)}
                 className="max-w-sm"
               />
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-border rounded-md bg-background"
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm"
               >
                 <option value="all">All Status</option>
                 <option value="Active">Active</option>
                 <option value="Expired">Expired</option>
                 <option value="Pending">Pending</option>
-                <option value="Terminated">Terminated</option>
+                <option value="Cancelled">Cancelled</option>
               </select>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Contract #</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Warehouse</TableHead>
-                    <TableHead>Period</TableHead>
-                    <TableHead>Monthly Price</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Days Remaining</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredContracts.map((contract) => (
-                    <TableRow key={contract.id}>
-                      <TableCell className="font-medium">{contract.contractNumber}</TableCell>
-                      <TableCell>{contract.customerName}</TableCell>
-                      <TableCell className="text-sm">{contract.warehouseName}</TableCell>
-                      <TableCell className="text-sm">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          {contract.startDate} - {contract.endDate}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">${contract.rentalPrice.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(contract.status)}`}>
-                          {contract.status}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className={contract.daysRemaining > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                          {contract.daysRemaining > 0 ? `${contract.daysRemaining} days` : `Expired ${Math.abs(contract.daysRemaining)} days ago`}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleViewContract(contract)}
-                            className="p-2 hover:bg-muted rounded-md transition-colors"
-                            title="View Contract"
-                          >
-                            <FileText className="w-4 h-4 text-muted-foreground" />
-                          </button>
-                          <button className="p-2 hover:bg-muted rounded-md transition-colors" title="Download">
-                            <Download className="w-4 h-4 text-muted-foreground" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(contract.id)}
-                            className="p-2 hover:bg-muted rounded-md transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </button>
-                        </div>
-                      </TableCell>
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading contracts...</p>
+            ) : filteredContracts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No contracts found.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Warehouse</TableHead>
+                      <TableHead>Period</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Days</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredContracts.map((contract) => {
+                      const remaining = daysRemaining(contract.endDate);
+                      return (
+                        <TableRow key={contract.contractId}>
+                          <TableCell className="font-medium">{contract.contractId}</TableCell>
+                          <TableCell>{contract.customerName} #{contract.customerId}</TableCell>
+                          <TableCell>{contract.warehouseName}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-sm">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              {contract.startDate} - {contract.endDate}
+                            </div>
+                          </TableCell>
+                          <TableCell>{Number(contract.rentalPrice).toLocaleString()}</TableCell>
+                          <TableCell>
+                            <select
+                              value={contract.status}
+                              onChange={(event) => handleStatusChange(contract.contractId, event.target.value as LeaseContractResponse['status'])}
+                              className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+                            >
+                              <option value="Pending">Pending</option>
+                              <option value="Active">Active</option>
+                              <option value="Expired">Expired</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
+                          </TableCell>
+                          <TableCell className={remaining >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {remaining >= 0 ? `${remaining} days` : `Expired ${Math.abs(remaining)} days ago`}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <button onClick={() => handleEdit(contract)} className="rounded-md p-2 hover:bg-muted">
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => handleDelete(contract.contractId)} className="rounded-md p-2 hover:bg-muted">
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      <ContractModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        contract={selectedContract}
-      />
     </DashboardLayout>
   );
 }

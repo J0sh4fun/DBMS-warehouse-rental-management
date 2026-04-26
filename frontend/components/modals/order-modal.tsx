@@ -146,7 +146,6 @@ export function OrderModal({ isOpen, onClose, onSave, mode }: OrderModalProps) {
                       placeholder="Product name"
                       value={item.productName}
                       onChange={(e) => handleItemChange(index, 'productName', e.target.value)}
-                      size="sm"
                       className="h-8"
                     />
                   </div>

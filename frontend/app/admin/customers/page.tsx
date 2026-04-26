@@ -1,175 +1,97 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Mail, Phone, Plus, Eye, Edit2, Trash2 } from 'lucide-react';
-import { Customer, adminCustomers } from '@/lib/mock-data';
-import { CustomerModal } from '@/components/modals/customer-modal';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { adminApi, AdminCustomerResponse, formatError } from '@/lib/api';
 
 export default function AdminCustomers() {
-  const [customers, setCustomers] = useState<Customer[]>(adminCustomers);
+  const [customers, setCustomers] = useState<AdminCustomerResponse[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'add' | 'edit' | 'view'>('add');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        setCustomers(await adminApi.customers());
+      } catch (err) {
+        setError(formatError(err));
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      customers.filter(
+        (customer) =>
+          customer.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          customer.username.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [customers, searchTerm]
   );
 
-  const handleAddClick = () => {
-    setSelectedCustomer(undefined);
-    setModalMode('add');
-    setIsModalOpen(true);
-  };
-
-  const handleViewClick = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setModalMode('view');
-    setIsModalOpen(true);
-  };
-
-  const handleEditClick = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setModalMode('edit');
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    setCustomers(customers.filter((c) => c.id !== id));
-  };
-
-  const handleSave = (updatedCustomer: Customer) => {
-    if (modalMode === 'add') {
-      setCustomers([...customers, updatedCustomer]);
-    } else {
-      setCustomers(
-        customers.map((c) => (c.id === updatedCustomer.id ? updatedCustomer : c))
-      );
-    }
-  };
-
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Customer Management</h1>
-            <p className="text-muted-foreground">View and manage all rental customers</p>
-          </div>
-          <Button className="bg-sidebar-primary hover:bg-sidebar-primary/90 text-sidebar-primary-foreground" onClick={handleAddClick}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Customer
-          </Button>
-        </div>
+    <DashboardLayout headerTitle="Current Tenants" headerSubtitle="Customers with active leases in your warehouses.">
+      <div className="space-y-6 p-8">
+        {error && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
 
         <Card>
           <CardHeader>
-            <CardTitle>All Customers</CardTitle>
-            <div className="mt-4">
-              <Input
-                placeholder="Search by name or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-sm"
-              />
-            </div>
+            <CardTitle>Tenants</CardTitle>
+            <Input
+              placeholder="Search by name, username, or email..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="mt-4 max-w-sm"
+            />
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Customer ID</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Warehouses</TableHead>
-                    <TableHead>Total Spent</TableHead>
-                    <TableHead>Rental Duration</TableHead>
-                    <TableHead>Join Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCustomers.map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell className="font-medium">{customer.id}</TableCell>
-                      <TableCell className="font-medium">{customer.name}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Mail className="w-4 h-4 text-muted-foreground" />
-                          {customer.email}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Phone className="w-4 h-4 text-muted-foreground" />
-                          {customer.phone}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                          {customer.warehousesRented}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-medium">${customer.totalSpent.toLocaleString()}</TableCell>
-                      <TableCell>{customer.rentalDuration}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{customer.joinDate}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleViewClick(customer)}
-                            className="p-2 hover:bg-muted rounded-md transition-colors"
-                            title="View"
-                          >
-                            <Eye className="w-4 h-4 text-muted-foreground" />
-                          </button>
-                          <button
-                            onClick={() => handleEditClick(customer)}
-                            className="p-2 hover:bg-muted rounded-md transition-colors"
-                            title="Edit"
-                          >
-                            <Edit2 className="w-4 h-4 text-muted-foreground" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(customer.id)}
-                            className="p-2 hover:bg-muted rounded-md transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </button>
-                        </div>
-                      </TableCell>
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading tenants...</p>
+            ) : filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No current tenants found.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Username</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Address</TableHead>
+                      <TableHead>Created</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((customer) => (
+                      <TableRow key={customer.customerId}>
+                        <TableCell className="font-medium">{customer.customerId}</TableCell>
+                        <TableCell>{customer.customerName}</TableCell>
+                        <TableCell>{customer.username}</TableCell>
+                        <TableCell>{customer.email}</TableCell>
+                        <TableCell>{customer.phoneNumber || '-'}</TableCell>
+                        <TableCell>{customer.address || '-'}</TableCell>
+                        <TableCell>{new Date(customer.createdAt).toLocaleDateString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      <CustomerModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSave}
-        initialData={selectedCustomer}
-        mode={modalMode}
-      />
     </DashboardLayout>
   );
 }

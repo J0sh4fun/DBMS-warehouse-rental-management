@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from "react"
-
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Package, Warehouse, ShoppingCart, FileText, User, LogOut, Users, LucideContrast as FileContract, Settings } from 'lucide-react';
+import { LayoutDashboard, Package, Warehouse, ShoppingCart, FileText, User, LogOut, Users, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/lib/user-context';
+import { useRouter } from 'next/navigation';
 
 const tenantNavigation = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -20,16 +19,22 @@ const adminNavigation = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { label: 'Warehouses', href: '/admin/warehouses', icon: Warehouse },
   { label: 'Customers', href: '/admin/customers', icon: Users },
-  { label: 'Rental Contracts', href: '/admin/contracts', icon: FileContract },
+  { label: 'Rental Contracts', href: '/admin/contracts', icon: FileText },
   { label: 'Reports', href: '/admin/reports', icon: FileText },
   { label: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { currentUser } = useUser();
-  const isAdmin = currentUser.role === 'admin';
+  const { currentUser, logout } = useUser();
+  const router = useRouter();
+  const isAdmin = currentUser?.role === 'admin';
   const navigation = isAdmin ? adminNavigation : tenantNavigation;
+
+  const handleLogout = () => {
+    logout();
+    router.replace('/login');
+  };
 
   return (
     <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col h-screen border-r border-sidebar-border">
@@ -84,7 +89,10 @@ export function Sidebar() {
           <User className="w-5 h-5" />
           <span>Profile</span>
         </Link>
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sidebar-foreground transition-colors">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sidebar-foreground transition-colors"
+        >
           <LogOut className="w-5 h-5" />
           <span>Logout</span>
         </button>
