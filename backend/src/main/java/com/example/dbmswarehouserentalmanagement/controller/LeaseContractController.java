@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/admin/lease-contracts")
+@RequestMapping({"/api/admin/lease-contracts", "/api/admin/contracts"})
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 public class LeaseContractController {
@@ -40,6 +41,24 @@ public class LeaseContractController {
     ) {
         Integer adminId = SecurityPrincipalUtils.requireAdminId(userDetails);
         return ResponseEntity.status(HttpStatus.CREATED).body(leaseContractService.create(adminId, request));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<LeaseContractResponse>> findAll(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false) LeaseContractStatus status
+    ) {
+        Integer adminId = SecurityPrincipalUtils.requireAdminId(userDetails);
+        return ResponseEntity.ok(leaseContractService.findAll(adminId, status));
+    }
+
+    @GetMapping("/{contractId}")
+    public ResponseEntity<LeaseContractResponse> findById(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Integer contractId
+    ) {
+        Integer adminId = SecurityPrincipalUtils.requireAdminId(userDetails);
+        return ResponseEntity.ok(leaseContractService.findById(adminId, contractId));
     }
 
     @PutMapping("/{contractId}")
@@ -62,21 +81,13 @@ public class LeaseContractController {
         return ResponseEntity.ok(leaseContractService.updateStatus(adminId, contractId, request.status()));
     }
 
-    @GetMapping
-    public ResponseEntity<List<LeaseContractResponse>> findAll(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(required = false) LeaseContractStatus status
-    ) {
-        Integer adminId = SecurityPrincipalUtils.requireAdminId(userDetails);
-        return ResponseEntity.ok(leaseContractService.findAll(adminId, status));
-    }
-
-    @GetMapping("/{contractId}")
-    public ResponseEntity<LeaseContractResponse> findById(
+    @DeleteMapping("/{contractId}")
+    public ResponseEntity<Void> delete(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Integer contractId
     ) {
         Integer adminId = SecurityPrincipalUtils.requireAdminId(userDetails);
-        return ResponseEntity.ok(leaseContractService.findById(adminId, contractId));
+        leaseContractService.delete(adminId, contractId);
+        return ResponseEntity.noContent().build();
     }
 }

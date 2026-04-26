@@ -14,6 +14,8 @@ public interface LeaseContractService {
 
     LeaseContractResponse updateStatus(Integer adminId, Integer contractId, LeaseContractStatus status);
 
+    void delete(Integer adminId, Integer contractId);
+
     List<LeaseContractResponse> findAll(Integer adminId, LeaseContractStatus status);
 
     LeaseContractResponse findById(Integer adminId, Integer contractId);

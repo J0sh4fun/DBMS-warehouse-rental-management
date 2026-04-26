@@ -18,6 +18,13 @@ public interface InventoryRepository extends JpaRepository<Inventory, InventoryI
     Optional<Inventory> findByIdForUpdate(@Param("id") InventoryId id);
 
     @Query("""
+            select count(inventory) > 0
+            from Inventory inventory
+            where inventory.id.warehouseId = :warehouseId
+            """)
+    boolean existsByWarehouseId(@Param("warehouseId") Integer warehouseId);
+
+    @Query("""
             select inventory
             from Inventory inventory
             join fetch inventory.product product

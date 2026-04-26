@@ -69,4 +69,6 @@ public interface InboundReceiptRepository extends JpaRepository<InboundReceipt, 
             @Param("receiptId") Integer receiptId,
             @Param("customerId") Integer customerId
     );
+
+    boolean existsByWarehouseWarehouseId(Integer warehouseId);
 }

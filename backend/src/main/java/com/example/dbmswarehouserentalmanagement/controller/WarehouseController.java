@@ -39,25 +39,6 @@ public class WarehouseController {
         return ResponseEntity.status(HttpStatus.CREATED).body(warehouseService.create(adminId, request));
     }
 
-    @PutMapping("/{warehouseId}")
-    public ResponseEntity<WarehouseResponse> update(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable Integer warehouseId,
-            @Valid @RequestBody WarehouseRequest request
-    ) {
-        Integer adminId = SecurityPrincipalUtils.requireAdminId(userDetails);
-        return ResponseEntity.ok(warehouseService.update(adminId, warehouseId, request));
-    }
-
-    @DeleteMapping("/{warehouseId}")
-    public ResponseEntity<WarehouseResponse> deactivate(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable Integer warehouseId
-    ) {
-        Integer adminId = SecurityPrincipalUtils.requireAdminId(userDetails);
-        return ResponseEntity.ok(warehouseService.deactivate(adminId, warehouseId));
-    }
-
     @GetMapping
     public ResponseEntity<List<WarehouseResponse>> findAll(
             @AuthenticationPrincipal CustomUserDetails userDetails
@@ -73,5 +54,25 @@ public class WarehouseController {
     ) {
         Integer adminId = SecurityPrincipalUtils.requireAdminId(userDetails);
         return ResponseEntity.ok(warehouseService.findById(adminId, warehouseId));
+    }
+
+    @PutMapping("/{warehouseId}")
+    public ResponseEntity<WarehouseResponse> update(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Integer warehouseId,
+            @Valid @RequestBody WarehouseRequest request
+    ) {
+        Integer adminId = SecurityPrincipalUtils.requireAdminId(userDetails);
+        return ResponseEntity.ok(warehouseService.update(adminId, warehouseId, request));
+    }
+
+    @DeleteMapping("/{warehouseId}")
+    public ResponseEntity<Void> delete(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Integer warehouseId
+    ) {
+        Integer adminId = SecurityPrincipalUtils.requireAdminId(userDetails);
+        warehouseService.delete(adminId, warehouseId);
+        return ResponseEntity.noContent().build();
     }
 }

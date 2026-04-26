@@ -69,4 +69,6 @@ public interface OutboundIssueRepository extends JpaRepository<OutboundIssue, In
             @Param("issueId") Integer issueId,
             @Param("customerId") Integer customerId
     );
+
+    boolean existsByWarehouseWarehouseId(Integer warehouseId);
 }

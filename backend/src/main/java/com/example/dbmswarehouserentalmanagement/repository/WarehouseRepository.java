@@ -11,4 +11,8 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Integer> {
     List<Warehouse> findByAdminAdminIdOrderByWarehouseIdDesc(Integer adminId);
 
     Optional<Warehouse> findByWarehouseIdAndAdminAdminId(Integer warehouseId, Integer adminId);
+
+    List<Warehouse> findByAdmin_AdminId(Integer adminId);
+
+    Optional<Warehouse> findByWarehouseIdAndAdmin_AdminId(Integer warehouseId, Integer adminId);
 }

@@ -11,7 +11,7 @@ public interface WarehouseService {
 
     WarehouseResponse update(Integer adminId, Integer warehouseId, WarehouseRequest request);
 
-    WarehouseResponse deactivate(Integer adminId, Integer warehouseId);
+    void delete(Integer adminId, Integer warehouseId);
 
     List<WarehouseResponse> findAll(Integer adminId);
 

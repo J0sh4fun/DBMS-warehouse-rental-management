@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface AdminCustomerService {
 
-    List<AdminCustomerResponse> findAll();
+    List<AdminCustomerResponse> findCurrentTenants(Integer adminId);
 }

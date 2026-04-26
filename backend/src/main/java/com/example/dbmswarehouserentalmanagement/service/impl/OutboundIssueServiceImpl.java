@@ -189,10 +189,11 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
     }
 
     private void validateActiveWarehouseLease(Integer customerId, Integer warehouseId) {
-        boolean hasActiveLease = leaseContractRepository.existsByCustomerCustomerIdAndWarehouseWarehouseIdAndStatus(
+        boolean hasActiveLease = leaseContractRepository.existsCurrentActiveLease(
                 customerId,
                 warehouseId,
-                LeaseContractStatus.Active
+                LeaseContractStatus.Active,
+                LocalDate.now()
         );
         if (!hasActiveLease) {
             throw new IllegalStateException("Customer does not have an active lease contract for this warehouse");

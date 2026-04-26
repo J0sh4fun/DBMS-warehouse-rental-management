@@ -7,10 +7,12 @@ import com.example.dbmswarehouserentalmanagement.entity.LeaseContract;
 import com.example.dbmswarehouserentalmanagement.entity.Warehouse;
 import com.example.dbmswarehouserentalmanagement.entity.enums.LeaseContractStatus;
 import com.example.dbmswarehouserentalmanagement.entity.enums.WarehouseStatus;
+import com.example.dbmswarehouserentalmanagement.exception.BusinessRuleViolationException;
 import com.example.dbmswarehouserentalmanagement.exception.ResourceNotFoundException;
 import com.example.dbmswarehouserentalmanagement.repository.CustomerRepository;
 import com.example.dbmswarehouserentalmanagement.repository.LeaseContractRepository;
 import com.example.dbmswarehouserentalmanagement.repository.WarehouseRepository;
+import com.example.dbmswarehouserentalmanagement.service.LeaseContractExpirationService;
 import com.example.dbmswarehouserentalmanagement.service.LeaseContractService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,15 +28,20 @@ public class LeaseContractServiceImpl implements LeaseContractService {
     private final LeaseContractRepository leaseContractRepository;
     private final WarehouseRepository warehouseRepository;
     private final CustomerRepository customerRepository;
+    private final LeaseContractExpirationService leaseContractExpirationService;
 
     @Override
     @Transactional
     public LeaseContractResponse create(Integer adminId, LeaseContractRequest request) {
+        leaseContractExpirationService.expireOverdueContracts();
         validateDateRange(request);
         Warehouse warehouse = getOwnedWarehouse(adminId, request.warehouseId());
-        if (warehouse.getStatus() == WarehouseStatus.Inactive) {
-            throw new IllegalStateException("Cannot create a lease contract for an inactive warehouse");
-        }
+        LeaseContractStatus status = resolveStatusForEndDate(
+                request.status() == null ? LeaseContractStatus.Pending : request.status(),
+                request.endDate()
+        );
+        validateWarehouseForStatus(warehouse, status, "Cannot create a lease contract for an inactive warehouse");
+
         Customer customer = customerRepository.findById(request.customerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
 
@@ -44,7 +51,7 @@ public class LeaseContractServiceImpl implements LeaseContractService {
                 .startDate(request.startDate())
                 .endDate(request.endDate())
                 .rentalPrice(request.rentalPrice())
-                .status(request.status() == null ? LeaseContractStatus.Pending : request.status())
+                .status(status)
                 .purpose(trimToNull(request.purpose()))
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -55,12 +62,16 @@ public class LeaseContractServiceImpl implements LeaseContractService {
     @Override
     @Transactional
     public LeaseContractResponse update(Integer adminId, Integer contractId, LeaseContractRequest request) {
+        leaseContractExpirationService.expireOverdueContracts();
         validateDateRange(request);
         LeaseContract contract = getOwnedContract(adminId, contractId);
         Warehouse warehouse = getOwnedWarehouse(adminId, request.warehouseId());
-        if (warehouse.getStatus() == WarehouseStatus.Inactive) {
-            throw new IllegalStateException("Cannot move a lease contract to an inactive warehouse");
-        }
+        LeaseContractStatus status = resolveStatusForEndDate(
+                request.status() == null ? contract.getStatus() : request.status(),
+                request.endDate()
+        );
+        validateWarehouseForStatus(warehouse, status, "Cannot move a lease contract to an inactive warehouse");
+
         Customer customer = customerRepository.findById(request.customerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
 
@@ -69,7 +80,7 @@ public class LeaseContractServiceImpl implements LeaseContractService {
         contract.setStartDate(request.startDate());
         contract.setEndDate(request.endDate());
         contract.setRentalPrice(request.rentalPrice());
-        contract.setStatus(request.status() == null ? contract.getStatus() : request.status());
+        contract.setStatus(status);
         contract.setPurpose(trimToNull(request.purpose()));
         return toResponse(contract);
     }
@@ -77,14 +88,34 @@ public class LeaseContractServiceImpl implements LeaseContractService {
     @Override
     @Transactional
     public LeaseContractResponse updateStatus(Integer adminId, Integer contractId, LeaseContractStatus status) {
+        leaseContractExpirationService.expireOverdueContracts();
+        if (status == null) {
+            throw new BusinessRuleViolationException("Status is required");
+        }
+
         LeaseContract contract = getOwnedContract(adminId, contractId);
+        if (isOverdue(contract.getEndDate()) && status != LeaseContractStatus.Expired) {
+            contract.setStatus(LeaseContractStatus.Expired);
+            throw new BusinessRuleViolationException("Expired lease contract cannot be changed to " + status);
+        }
+        validateWarehouseForStatus(contract.getWarehouse(), status, "Cannot update a lease contract for an inactive warehouse");
         contract.setStatus(status);
         return toResponse(contract);
     }
 
     @Override
+    @Transactional
+    public void delete(Integer adminId, Integer contractId) {
+        leaseContractExpirationService.expireOverdueContracts();
+        LeaseContract contract = getOwnedContract(adminId, contractId);
+        leaseContractRepository.delete(contract);
+        leaseContractRepository.flush();
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<LeaseContractResponse> findAll(Integer adminId, LeaseContractStatus status) {
+        leaseContractExpirationService.expireOverdueContracts();
         return leaseContractRepository.findByAdminIdAndOptionalStatus(adminId, status).stream()
                 .map(this::toResponse)
                 .toList();
@@ -93,6 +124,7 @@ public class LeaseContractServiceImpl implements LeaseContractService {
     @Override
     @Transactional(readOnly = true)
     public LeaseContractResponse findById(Integer adminId, Integer contractId) {
+        leaseContractExpirationService.expireOverdueContracts();
         return toResponse(getOwnedContract(adminId, contractId));
     }
 
@@ -107,9 +139,32 @@ public class LeaseContractServiceImpl implements LeaseContractService {
     }
 
     private void validateDateRange(LeaseContractRequest request) {
-        if (!request.endDate().isAfter(request.startDate())) {
-            throw new IllegalArgumentException("End date must be after start date");
+        if (request.startDate() == null || request.endDate() == null) {
+            throw new BusinessRuleViolationException("Start date and end date are required");
         }
+        if (!request.endDate().isAfter(request.startDate())) {
+            throw new BusinessRuleViolationException("End date must be after start date");
+        }
+    }
+
+    private void validateWarehouseForStatus(Warehouse warehouse, LeaseContractStatus status, String inactiveMessage) {
+        if (warehouse.getStatus() == WarehouseStatus.Inactive) {
+            throw new BusinessRuleViolationException(inactiveMessage);
+        }
+        if (status == LeaseContractStatus.Active && warehouse.getStatus() != WarehouseStatus.Active) {
+            throw new BusinessRuleViolationException("Cannot activate contract for a warehouse that is not Active");
+        }
+    }
+
+    private LeaseContractStatus resolveStatusForEndDate(LeaseContractStatus status, java.time.LocalDate endDate) {
+        if (isOverdue(endDate)) {
+            return LeaseContractStatus.Expired;
+        }
+        return status;
+    }
+
+    private boolean isOverdue(java.time.LocalDate endDate) {
+        return endDate != null && endDate.isBefore(java.time.LocalDate.now());
     }
 
     private String trimToNull(String value) {

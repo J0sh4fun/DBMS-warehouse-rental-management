@@ -5,8 +5,13 @@ import com.example.dbmswarehouserentalmanagement.dto.response.WarehouseResponse;
 import com.example.dbmswarehouserentalmanagement.entity.Admin;
 import com.example.dbmswarehouserentalmanagement.entity.Warehouse;
 import com.example.dbmswarehouserentalmanagement.entity.enums.WarehouseStatus;
+import com.example.dbmswarehouserentalmanagement.exception.ResourceConflictException;
 import com.example.dbmswarehouserentalmanagement.exception.ResourceNotFoundException;
 import com.example.dbmswarehouserentalmanagement.repository.AdminRepository;
+import com.example.dbmswarehouserentalmanagement.repository.InboundReceiptRepository;
+import com.example.dbmswarehouserentalmanagement.repository.InventoryRepository;
+import com.example.dbmswarehouserentalmanagement.repository.LeaseContractRepository;
+import com.example.dbmswarehouserentalmanagement.repository.OutboundIssueRepository;
 import com.example.dbmswarehouserentalmanagement.repository.WarehouseRepository;
 import com.example.dbmswarehouserentalmanagement.service.WarehouseService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +26,10 @@ public class WarehouseServiceImpl implements WarehouseService {
 
     private final WarehouseRepository warehouseRepository;
     private final AdminRepository adminRepository;
+    private final LeaseContractRepository leaseContractRepository;
+    private final InboundReceiptRepository inboundReceiptRepository;
+    private final OutboundIssueRepository outboundIssueRepository;
+    private final InventoryRepository inventoryRepository;
 
     @Override
     @Transactional
@@ -52,10 +61,11 @@ public class WarehouseServiceImpl implements WarehouseService {
 
     @Override
     @Transactional
-    public WarehouseResponse deactivate(Integer adminId, Integer warehouseId) {
+    public void delete(Integer adminId, Integer warehouseId) {
         Warehouse warehouse = getOwnedWarehouse(adminId, warehouseId);
-        warehouse.setStatus(WarehouseStatus.Inactive);
-        return toResponse(warehouse);
+        ensureWarehouseCanBeDeleted(warehouseId);
+        warehouseRepository.delete(warehouse);
+        warehouseRepository.flush();
     }
 
     @Override
@@ -75,6 +85,21 @@ public class WarehouseServiceImpl implements WarehouseService {
     private Warehouse getOwnedWarehouse(Integer adminId, Integer warehouseId) {
         return warehouseRepository.findByWarehouseIdAndAdminAdminId(warehouseId, adminId)
                 .orElseThrow(() -> new ResourceNotFoundException("Warehouse not found"));
+    }
+
+    private void ensureWarehouseCanBeDeleted(Integer warehouseId) {
+        if (leaseContractRepository.existsByWarehouseWarehouseId(warehouseId)) {
+            throw new ResourceConflictException("Warehouse cannot be deleted because it has lease contracts");
+        }
+        if (inboundReceiptRepository.existsByWarehouseWarehouseId(warehouseId)) {
+            throw new ResourceConflictException("Warehouse cannot be deleted because it has inbound receipts");
+        }
+        if (outboundIssueRepository.existsByWarehouseWarehouseId(warehouseId)) {
+            throw new ResourceConflictException("Warehouse cannot be deleted because it has outbound issues");
+        }
+        if (inventoryRepository.existsByWarehouseId(warehouseId)) {
+            throw new ResourceConflictException("Warehouse cannot be deleted because it has inventory records");
+        }
     }
 
     private String trimToNull(String value) {
