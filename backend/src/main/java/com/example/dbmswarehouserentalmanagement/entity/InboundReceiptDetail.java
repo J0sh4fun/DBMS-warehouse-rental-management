@@ -7,7 +7,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,13 +30,11 @@ public class InboundReceiptDetail {
     private InboundReceiptDetailId id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @MapsId("receiptId")
-    @JoinColumn(name = "ReceiptId", nullable = false)
+    @JoinColumn(name = "ReceiptId", referencedColumnName = "ReceiptId", nullable = false, insertable = false, updatable = false)
     private InboundReceipt inboundReceipt;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @MapsId("productId")
-    @JoinColumn(name = "ProductId", nullable = false)
+    @JoinColumn(name = "ProductId", referencedColumnName = "ProductId", nullable = false, insertable = false, updatable = false)
     private Product product;
 
     @Column(name = "Quantity", nullable = false)
