@@ -4,7 +4,9 @@ import com.example.dbmswarehouserentalmanagement.dto.request.WarehouseRequest;
 import com.example.dbmswarehouserentalmanagement.dto.response.WarehouseResponse;
 import com.example.dbmswarehouserentalmanagement.entity.Admin;
 import com.example.dbmswarehouserentalmanagement.entity.Warehouse;
+import com.example.dbmswarehouserentalmanagement.entity.enums.LeaseContractStatus;
 import com.example.dbmswarehouserentalmanagement.entity.enums.WarehouseStatus;
+import com.example.dbmswarehouserentalmanagement.exception.BusinessRuleViolationException;
 import com.example.dbmswarehouserentalmanagement.exception.ResourceConflictException;
 import com.example.dbmswarehouserentalmanagement.exception.ResourceNotFoundException;
 import com.example.dbmswarehouserentalmanagement.repository.AdminRepository;
@@ -18,11 +20,17 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class WarehouseServiceImpl implements WarehouseService {
+
+    private static final List<LeaseContractStatus> BLOCKING_LEASE_STATUSES = List.of(
+            LeaseContractStatus.Pending,
+            LeaseContractStatus.Active
+    );
 
     private final WarehouseRepository warehouseRepository;
     private final AdminRepository adminRepository;
@@ -41,6 +49,7 @@ public class WarehouseServiceImpl implements WarehouseService {
                 .warehouseName(request.warehouseName().trim())
                 .address(trimToNull(request.address()))
                 .area(request.area())
+                .rentalPrice(request.rentalPrice())
                 .status(request.status() == null ? WarehouseStatus.Active : request.status())
                 .admin(admin)
                 .build();
@@ -55,6 +64,7 @@ public class WarehouseServiceImpl implements WarehouseService {
         warehouse.setWarehouseName(request.warehouseName().trim());
         warehouse.setAddress(trimToNull(request.address()));
         warehouse.setArea(request.area());
+        warehouse.setRentalPrice(request.rentalPrice());
         warehouse.setStatus(request.status() == null ? warehouse.getStatus() : request.status());
         return toResponse(warehouse);
     }
@@ -72,6 +82,15 @@ public class WarehouseServiceImpl implements WarehouseService {
     @Transactional(readOnly = true)
     public List<WarehouseResponse> findAll(Integer adminId) {
         return warehouseRepository.findByAdminAdminIdOrderByWarehouseIdDesc(adminId).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<WarehouseResponse> findAvailableForCustomers(LocalDate startDate, LocalDate endDate) {
+        validateDateRange(startDate, endDate);
+        return warehouseRepository.findAvailableForRental(WarehouseStatus.Active, BLOCKING_LEASE_STATUSES, startDate, endDate).stream()
                 .map(this::toResponse)
                 .toList();
     }
@@ -102,6 +121,15 @@ public class WarehouseServiceImpl implements WarehouseService {
         }
     }
 
+    private void validateDateRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null) {
+            throw new BusinessRuleViolationException("Start date and end date are required");
+        }
+        if (endDate.isBefore(startDate)) {
+            throw new BusinessRuleViolationException("End date must be on or after start date");
+        }
+    }
+
     private String trimToNull(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -115,6 +143,7 @@ public class WarehouseServiceImpl implements WarehouseService {
                 warehouse.getWarehouseName(),
                 warehouse.getAddress(),
                 warehouse.getArea(),
+                warehouse.getRentalPrice(),
                 warehouse.getStatus(),
                 warehouse.getAdmin().getAdminId(),
                 warehouse.getAdmin().getAdminName()

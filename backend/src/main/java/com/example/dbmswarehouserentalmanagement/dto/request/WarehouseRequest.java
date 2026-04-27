@@ -3,7 +3,10 @@ package com.example.dbmswarehouserentalmanagement.dto.request;
 import com.example.dbmswarehouserentalmanagement.entity.enums.WarehouseStatus;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+
+import java.math.BigDecimal;
 
 public record WarehouseRequest(
         @NotBlank(message = "Warehouse name is required")
@@ -15,6 +18,10 @@ public record WarehouseRequest(
 
         @DecimalMin(value = "0.0", inclusive = false, message = "Area must be greater than 0")
         Float area,
+
+        @NotNull(message = "Rental price is required")
+        @DecimalMin(value = "0.0", inclusive = false, message = "Rental price must be greater than 0")
+        BigDecimal rentalPrice,
 
         WarehouseStatus status
 ) {

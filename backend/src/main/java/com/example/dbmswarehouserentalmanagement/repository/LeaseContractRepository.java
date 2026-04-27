@@ -2,6 +2,7 @@ package com.example.dbmswarehouserentalmanagement.repository;
 
 import com.example.dbmswarehouserentalmanagement.entity.LeaseContract;
 import com.example.dbmswarehouserentalmanagement.entity.enums.LeaseContractStatus;
+import com.example.dbmswarehouserentalmanagement.entity.enums.WarehouseStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -43,6 +44,26 @@ public interface LeaseContractRepository extends JpaRepository<LeaseContract, In
             @Param("adminId") Integer adminId
     );
 
+    @Query("""
+            select contract
+            from LeaseContract contract
+            join fetch contract.customer customer
+            join fetch contract.warehouse warehouse
+            join fetch warehouse.admin admin
+            where customer.customerId = :customerId
+              and contract.status = :status
+              and contract.startDate <= :today
+              and contract.endDate >= :today
+              and warehouse.status <> :inactiveStatus
+            order by contract.endDate asc, warehouse.warehouseName asc
+            """)
+    List<LeaseContract> findCurrentByCustomerId(
+            @Param("customerId") Integer customerId,
+            @Param("status") LeaseContractStatus status,
+            @Param("today") LocalDate today,
+            @Param("inactiveStatus") WarehouseStatus inactiveStatus
+    );
+
     boolean existsByCustomerCustomerIdAndWarehouseWarehouseIdAndStatus(
             Integer customerId,
             Integer warehouseId,
@@ -63,6 +84,38 @@ public interface LeaseContractRepository extends JpaRepository<LeaseContract, In
             @Param("warehouseId") Integer warehouseId,
             @Param("status") LeaseContractStatus status,
             @Param("today") LocalDate today
+    );
+
+    @Query("""
+            select count(contract) > 0
+            from LeaseContract contract
+            where contract.warehouse.warehouseId = :warehouseId
+              and contract.status in :statuses
+              and contract.startDate <= :endDate
+              and contract.endDate >= :startDate
+            """)
+    boolean existsOverlappingLease(
+            @Param("warehouseId") Integer warehouseId,
+            @Param("statuses") Collection<LeaseContractStatus> statuses,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+    @Query("""
+            select count(contract) > 0
+            from LeaseContract contract
+            where contract.warehouse.warehouseId = :warehouseId
+              and contract.contractId <> :contractId
+              and contract.status in :statuses
+              and contract.startDate <= :endDate
+              and contract.endDate >= :startDate
+            """)
+    boolean existsOverlappingLeaseExcludingContract(
+            @Param("warehouseId") Integer warehouseId,
+            @Param("contractId") Integer contractId,
+            @Param("statuses") Collection<LeaseContractStatus> statuses,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
     );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)

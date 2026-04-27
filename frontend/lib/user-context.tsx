@@ -7,6 +7,7 @@ import {
   clearStoredAuth,
   getStoredAuth,
   LoginRequest,
+  RegisterRequest,
   roleFromBackend,
   saveStoredAuth,
   StoredAuth,
@@ -26,6 +27,7 @@ interface UserContextType {
   loading: boolean;
   isAuthenticated: boolean;
   login: (request: LoginRequest) => Promise<User>;
+  registerCustomer: (request: RegisterRequest) => Promise<User>;
   logout: () => void;
 }
 
@@ -77,6 +79,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return user;
   };
 
+  const registerCustomer = async (request: RegisterRequest) => {
+    const response = await authApi.registerCustomer(request);
+    const stored: StoredAuth = {
+      token: response.token,
+      tokenType: response.type || 'Bearer',
+      userRole: response.userRole,
+      userId: response.userId,
+      username: request.username,
+    };
+    saveStoredAuth(stored);
+    const user = toUser(stored);
+    setCurrentUser(user);
+    return user;
+  };
+
   const logout = () => {
     clearStoredAuth();
     setCurrentUser(null);
@@ -88,6 +105,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       loading,
       isAuthenticated: Boolean(currentUser),
       login,
+      registerCustomer,
       logout,
     }),
     [currentUser, loading]

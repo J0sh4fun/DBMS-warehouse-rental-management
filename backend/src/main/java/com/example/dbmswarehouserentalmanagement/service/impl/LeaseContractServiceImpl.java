@@ -25,6 +25,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LeaseContractServiceImpl implements LeaseContractService {
 
+    private static final List<LeaseContractStatus> BLOCKING_LEASE_STATUSES = List.of(
+            LeaseContractStatus.Pending,
+            LeaseContractStatus.Active
+    );
+
     private final LeaseContractRepository leaseContractRepository;
     private final WarehouseRepository warehouseRepository;
     private final CustomerRepository customerRepository;
@@ -41,6 +46,7 @@ public class LeaseContractServiceImpl implements LeaseContractService {
                 request.endDate()
         );
         validateWarehouseForStatus(warehouse, status, "Cannot create a lease contract for an inactive warehouse");
+        validateNoOverlappingLease(warehouse.getWarehouseId(), null, request, status);
 
         Customer customer = customerRepository.findById(request.customerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
@@ -71,6 +77,7 @@ public class LeaseContractServiceImpl implements LeaseContractService {
                 request.endDate()
         );
         validateWarehouseForStatus(warehouse, status, "Cannot move a lease contract to an inactive warehouse");
+        validateNoOverlappingLease(warehouse.getWarehouseId(), contractId, request, status);
 
         Customer customer = customerRepository.findById(request.customerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
@@ -128,6 +135,21 @@ public class LeaseContractServiceImpl implements LeaseContractService {
         return toResponse(getOwnedContract(adminId, contractId));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<LeaseContractResponse> findCurrentForCustomer(Integer customerId) {
+        leaseContractExpirationService.expireOverdueContracts();
+        return leaseContractRepository.findCurrentByCustomerId(
+                        customerId,
+                        LeaseContractStatus.Active,
+                        java.time.LocalDate.now(),
+                        WarehouseStatus.Inactive
+                )
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     private Warehouse getOwnedWarehouse(Integer adminId, Integer warehouseId) {
         return warehouseRepository.findByWarehouseIdAndAdminAdminId(warehouseId, adminId)
                 .orElseThrow(() -> new ResourceNotFoundException("Warehouse not found"));
@@ -153,6 +175,35 @@ public class LeaseContractServiceImpl implements LeaseContractService {
         }
         if (status == LeaseContractStatus.Active && warehouse.getStatus() != WarehouseStatus.Active) {
             throw new BusinessRuleViolationException("Cannot activate contract for a warehouse that is not Active");
+        }
+    }
+
+    private void validateNoOverlappingLease(
+            Integer warehouseId,
+            Integer currentContractId,
+            LeaseContractRequest request,
+            LeaseContractStatus status
+    ) {
+        if (!BLOCKING_LEASE_STATUSES.contains(status)) {
+            return;
+        }
+
+        boolean overlaps = currentContractId == null
+                ? leaseContractRepository.existsOverlappingLease(
+                        warehouseId,
+                        BLOCKING_LEASE_STATUSES,
+                        request.startDate(),
+                        request.endDate()
+                )
+                : leaseContractRepository.existsOverlappingLeaseExcludingContract(
+                        warehouseId,
+                        currentContractId,
+                        BLOCKING_LEASE_STATUSES,
+                        request.startDate(),
+                        request.endDate()
+                );
+        if (overlaps) {
+            throw new BusinessRuleViolationException("Warehouse is already reserved for the selected period");
         }
     }
 

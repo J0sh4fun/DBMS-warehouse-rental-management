@@ -40,6 +40,7 @@ DROP TABLE IF EXISTS `Product`;
 DROP TABLE IF EXISTS `Category`;
 DROP TABLE IF EXISTS `Supplier`;
 DROP TABLE IF EXISTS `Buyer`;
+DROP TABLE IF EXISTS `WarehouseRentalRequest`;
 DROP TABLE IF EXISTS `LeaseContract`;
 DROP TABLE IF EXISTS `Warehouse`;
 DROP TABLE IF EXISTS `Customer`;
@@ -76,6 +77,7 @@ CREATE TABLE `Warehouse` (
   `WarehouseName` VARCHAR(255) NOT NULL,
   `Address` VARCHAR(255),
   `Area` FLOAT,
+  `RentalPrice` DECIMAL(18,2) NOT NULL DEFAULT 0.00,
   `Status` ENUM('Active', 'Maintenance', 'Inactive') NOT NULL,
   `AdminId` INT NOT NULL,
   PRIMARY KEY (`WarehouseId`),
@@ -104,6 +106,34 @@ CREATE TABLE `LeaseContract` (
   CONSTRAINT `fk_lease_warehouse`
     FOREIGN KEY (`WarehouseId`) REFERENCES `Warehouse` (`WarehouseId`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `WarehouseRentalRequest` (
+  `RequestId` INT NOT NULL AUTO_INCREMENT,
+  `CustomerId` INT NOT NULL,
+  `WarehouseId` INT NOT NULL,
+  `StartDate` DATE NOT NULL,
+  `EndDate` DATE NOT NULL,
+  `RentalPrice` DECIMAL(18,2) NOT NULL,
+  `Purpose` VARCHAR(255),
+  `Status` ENUM('Pending', 'Approved', 'Rejected') NOT NULL,
+  `ReviewNote` VARCHAR(255),
+  `ContractId` INT,
+  `CreatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `ReviewedAt` DATETIME,
+  PRIMARY KEY (`RequestId`),
+  KEY `idx_rental_request_customer_id` (`CustomerId`),
+  KEY `idx_rental_request_warehouse_id` (`WarehouseId`),
+  UNIQUE KEY `uk_rental_request_contract_id` (`ContractId`),
+  CONSTRAINT `fk_rental_request_customer`
+    FOREIGN KEY (`CustomerId`) REFERENCES `Customer` (`CustomerId`)
+    ON UPDATE RESTRICT ON DELETE RESTRICT,
+  CONSTRAINT `fk_rental_request_warehouse`
+    FOREIGN KEY (`WarehouseId`) REFERENCES `Warehouse` (`WarehouseId`)
+    ON UPDATE RESTRICT ON DELETE RESTRICT,
+  CONSTRAINT `fk_rental_request_contract`
+    FOREIGN KEY (`ContractId`) REFERENCES `LeaseContract` (`ContractId`)
+    ON UPDATE RESTRICT ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `Buyer` (
@@ -511,6 +541,10 @@ BEGIN
   IF NEW.`Area` IS NOT NULL AND NEW.`Area` <= 0 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Warehouse area must be greater than zero';
   END IF;
+
+  IF NEW.`RentalPrice` <= 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Warehouse rental price must be greater than zero';
+  END IF;
 END$$
 
 CREATE TRIGGER `trg_warehouse_bu_validate`
@@ -525,6 +559,10 @@ BEGIN
 
   IF NEW.`Area` IS NOT NULL AND NEW.`Area` <= 0 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Warehouse area must be greater than zero';
+  END IF;
+
+  IF NEW.`RentalPrice` <= 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Warehouse rental price must be greater than zero';
   END IF;
 END$$
 

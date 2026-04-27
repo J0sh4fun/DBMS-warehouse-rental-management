@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { BuyerResponse, customerApi, formatError, InventoryResponse, OutboundIssueResponse, ProductResponse } from '@/lib/api';
+import { BuyerResponse, customerApi, formatError, InventoryResponse, LeaseContractResponse, OutboundIssueResponse, ProductResponse } from '@/lib/api';
 import { formatCurrency, formatDate, formatNumber, statusClass } from '@/lib/format';
 import { CheckCircle2, Edit2, PackageMinus, Plus, RotateCw, Trash2, X } from 'lucide-react';
 
@@ -48,6 +48,7 @@ function issueTotal(issue: OutboundIssueResponse) {
 export default function Orders() {
   const [buyers, setBuyers] = useState<BuyerResponse[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
+  const [contracts, setContracts] = useState<LeaseContractResponse[]>([]);
   const [inventory, setInventory] = useState<InventoryResponse[]>([]);
   const [issues, setIssues] = useState<OutboundIssueResponse[]>([]);
   const [buyerForm, setBuyerForm] = useState<BuyerForm>(buyerDefault);
@@ -61,14 +62,16 @@ export default function Orders() {
     setLoading(true);
     setError('');
     try {
-      const [buyerData, productData, inventoryData, issueData] = await Promise.all([
+      const [buyerData, productData, contractData, inventoryData, issueData] = await Promise.all([
         customerApi.buyers(),
         customerApi.products(),
+        customerApi.contracts(),
         customerApi.inventory(),
         customerApi.outboundIssues(),
       ]);
       setBuyers(buyerData);
       setProducts(productData);
+      setContracts(contractData);
       setInventory(inventoryData);
       setIssues(issueData.content || []);
     } catch (err) {
@@ -85,10 +88,11 @@ export default function Orders() {
   const productById = useMemo(() => new Map(products.map((product) => [product.productId, product])), [products]);
   const warehouseOptions = useMemo(() => {
     const map = new Map<number, string>();
+    contracts.forEach((contract) => map.set(contract.warehouseId, contract.warehouseName));
     inventory.forEach((item) => map.set(item.warehouseId, item.warehouseName));
     issues.forEach((issue) => map.set(issue.warehouseId, issue.warehouseName));
     return Array.from(map, ([warehouseId, warehouseName]) => ({ warehouseId, warehouseName }));
-  }, [inventory, issues]);
+  }, [contracts, inventory, issues]);
 
   const batchOptions = useMemo(
     () =>
@@ -223,15 +227,23 @@ export default function Orders() {
                 <CardContent>
                   <form onSubmit={handleOutboundSubmit} className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Warehouse ID</Label>
-                      <Input list="warehouse-options-outbound" type="number" min="1" value={outboundForm.warehouseId} onChange={(event) => setOutboundForm({ ...outboundForm, warehouseId: event.target.value, batchNo: '' })} required />
-                      <datalist id="warehouse-options-outbound">
+                      <Label>Warehouse</Label>
+                      <select
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                        value={outboundForm.warehouseId}
+                        onChange={(event) => setOutboundForm({ ...outboundForm, warehouseId: event.target.value, batchNo: '' })}
+                        required
+                      >
+                        <option value="">Select leased warehouse</option>
                         {warehouseOptions.map((warehouse) => (
                           <option key={warehouse.warehouseId} value={warehouse.warehouseId}>
-                            {warehouse.warehouseName}
+                            {warehouse.warehouseName} #{warehouse.warehouseId}
                           </option>
                         ))}
-                      </datalist>
+                      </select>
+                      {warehouseOptions.length === 0 && (
+                        <p className="text-xs text-muted-foreground">No active warehouse contract is available for outbound issues.</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label>Buyer</Label>
@@ -280,7 +292,7 @@ export default function Orders() {
                         <Input type="number" min="0" step="0.01" value={outboundForm.sellingPrice} onChange={(event) => setOutboundForm({ ...outboundForm, sellingPrice: event.target.value })} required />
                       </div>
                     </div>
-                    <Button type="submit" disabled={saving || buyers.length === 0 || products.length === 0}>
+                    <Button type="submit" disabled={saving || warehouseOptions.length === 0 || buyers.length === 0 || products.length === 0}>
                       <Plus className="h-4 w-4" />
                       {saving ? 'Saving...' : 'Create Draft'}
                     </Button>

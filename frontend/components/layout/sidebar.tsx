@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Package, Warehouse, ShoppingCart, FileText, User, LogOut, Users, Settings } from 'lucide-react';
+import { ClipboardList, LayoutDashboard, Package, Warehouse, ShoppingCart, FileText, User, LogOut, Users, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/lib/user-context';
 import { useRouter } from 'next/navigation';
@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 const tenantNavigation = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'My Warehouses', href: '/warehouses', icon: Warehouse },
+  { label: 'Rental Requests', href: '/rental-requests', icon: ClipboardList },
   { label: 'Inventory', href: '/inventory', icon: Package },
   { label: 'Orders', href: '/orders', icon: ShoppingCart },
   { label: 'Reports', href: '/reports', icon: FileText },
@@ -19,6 +20,7 @@ const adminNavigation = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { label: 'Warehouses', href: '/admin/warehouses', icon: Warehouse },
   { label: 'Customers', href: '/admin/customers', icon: Users },
+  { label: 'Rental Requests', href: '/admin/rental-requests', icon: ClipboardList },
   { label: 'Rental Contracts', href: '/admin/contracts', icon: FileText },
   { label: 'Reports', href: '/admin/reports', icon: FileText },
   { label: 'Settings', href: '/admin/settings', icon: Settings },

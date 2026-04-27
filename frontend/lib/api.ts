@@ -111,7 +111,16 @@ export async function apiRequest<T>(
 export interface LoginRequest {
   username: string;
   password: string;
-  userType: UserType;
+  userType?: UserType;
+}
+
+export interface RegisterRequest {
+  name: string;
+  username: string;
+  email: string;
+  password: string;
+  phoneNumber?: string;
+  address?: string;
 }
 
 export interface JwtAuthResponse {
@@ -126,6 +135,7 @@ export interface WarehouseResponse {
   warehouseName: string;
   address?: string | null;
   area?: number | null;
+  rentalPrice?: number | null;
   status: 'Active' | 'Maintenance' | 'Inactive';
   adminId: number;
   adminName: string;
@@ -135,6 +145,7 @@ export interface WarehouseRequest {
   warehouseName: string;
   address?: string;
   area?: number;
+  rentalPrice: number;
   status?: WarehouseResponse['status'];
 }
 
@@ -170,6 +181,34 @@ export interface LeaseContractRequest {
   rentalPrice: number;
   status?: LeaseContractResponse['status'];
   purpose?: string;
+}
+
+export type RentalRequestStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export interface RentalRequestCreateRequest {
+  warehouseId: number;
+  startDate: string;
+  endDate: string;
+  purpose?: string;
+}
+
+export interface RentalRequestResponse {
+  requestId: number;
+  customerId: number;
+  customerName: string;
+  warehouseId: number;
+  warehouseName: string;
+  adminId: number;
+  adminName: string;
+  startDate: string;
+  endDate: string;
+  rentalPrice: number;
+  purpose?: string | null;
+  status: RentalRequestStatus;
+  contractId?: number | null;
+  reviewNote?: string | null;
+  createdAt: string;
+  reviewedAt?: string | null;
 }
 
 export interface CategoryResponse {
@@ -298,6 +337,11 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify(request),
     }),
+  registerCustomer: (request: RegisterRequest) =>
+    apiRequest<JwtAuthResponse>('/api/auth/register-customer', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
 };
 
 export const adminApi = {
@@ -320,9 +364,27 @@ export const adminApi = {
       body: JSON.stringify({ status }),
     }),
   deleteContract: (id: number) => apiRequest<void>(`/api/admin/contracts/${id}`, { method: 'DELETE' }),
+  rentalRequests: (status?: RentalRequestStatus | 'all') =>
+    apiRequest<RentalRequestResponse[]>('/api/admin/rental-requests', { query: { status: status === 'all' ? undefined : status } }),
+  approveRentalRequest: (id: number, note?: string) =>
+    apiRequest<RentalRequestResponse>(`/api/admin/rental-requests/${id}/approve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ note }),
+    }),
+  rejectRentalRequest: (id: number, note?: string) =>
+    apiRequest<RentalRequestResponse>(`/api/admin/rental-requests/${id}/reject`, {
+      method: 'PATCH',
+      body: JSON.stringify({ note }),
+    }),
 };
 
 export const customerApi = {
+  availableWarehouses: (startDate: string, endDate: string) =>
+    apiRequest<WarehouseResponse[]>('/api/customer/warehouses/available', { query: { startDate, endDate } }),
+  contracts: () => apiRequest<LeaseContractResponse[]>('/api/customer/contracts'),
+  rentalRequests: () => apiRequest<RentalRequestResponse[]>('/api/customer/rental-requests'),
+  createRentalRequest: (request: RentalRequestCreateRequest) =>
+    apiRequest<RentalRequestResponse>('/api/customer/rental-requests', { method: 'POST', body: JSON.stringify(request) }),
   categories: () => apiRequest<CategoryResponse[]>('/api/customer/categories'),
   createCategory: (categoryName: string) =>
     apiRequest<CategoryResponse>('/api/customer/categories', {

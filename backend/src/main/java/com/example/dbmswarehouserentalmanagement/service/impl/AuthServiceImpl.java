@@ -36,26 +36,15 @@ public class AuthServiceImpl implements AuthService {
     public JwtAuthResponse login(LoginRequest request) {
         String identifier = request.getUsername().trim();
 
-        CustomUserDetails userDetails = switch (request.getUserType()) {
-            case ADMIN -> adminRepository.findByUserNameOrEmail(identifier, identifier)
-                    .map(CustomUserDetails::fromAdmin)
-                    .orElseThrow(() -> new BadCredentialsException("Invalid username/email or password"));
-            case CUSTOMER -> customerRepository.findByUserNameOrEmail(identifier, identifier)
-                    .map(CustomUserDetails::fromCustomer)
-                    .orElseThrow(() -> new BadCredentialsException("Invalid username/email or password"));
-        };
-
-        if (!passwordEncoder.matches(request.getPassword(), userDetails.getPassword())) {
-            throw new BadCredentialsException("Invalid username/email or password");
-        }
-
-        String token = jwtTokenProvider.generateToken(userDetails);
-        return JwtAuthResponse.builder()
-                .token(token)
-                .type(TOKEN_TYPE)
-                .userRole(userDetails.getAuthorities().iterator().next().getAuthority())
-                .userId(userDetails.getUserId())
-                .build();
+        return adminRepository.findByUserNameOrEmail(identifier, identifier)
+                .map(CustomUserDetails::fromAdmin)
+                .filter(userDetails -> passwordEncoder.matches(request.getPassword(), userDetails.getPassword()))
+                .map(this::buildAuthResponse)
+                .or(() -> customerRepository.findByUserNameOrEmail(identifier, identifier)
+                        .map(CustomUserDetails::fromCustomer)
+                        .filter(userDetails -> passwordEncoder.matches(request.getPassword(), userDetails.getPassword()))
+                        .map(this::buildAuthResponse))
+                .orElseThrow(() -> new BadCredentialsException("Invalid username/email or password"));
     }
 
     @Override
@@ -115,6 +104,15 @@ public class AuthServiceImpl implements AuthService {
         if (adminRepository.existsByEmail(email) || customerRepository.existsByEmail(email)) {
             throw new ResourceConflictException("Email already exists");
         }
+    }
+
+    private JwtAuthResponse buildAuthResponse(CustomUserDetails userDetails) {
+        return JwtAuthResponse.builder()
+                .token(jwtTokenProvider.generateToken(userDetails))
+                .type(TOKEN_TYPE)
+                .userRole(userDetails.getAuthorities().iterator().next().getAuthority())
+                .userId(userDetails.getUserId())
+                .build();
     }
 }
 

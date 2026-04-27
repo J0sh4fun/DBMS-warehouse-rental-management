@@ -5,13 +5,17 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { customerApi, formatError, InboundReceiptResponse, InventoryResponse, OutboundIssueResponse } from '@/lib/api';
-import { formatDate, formatNumber } from '@/lib/format';
-import { MapPin, Package, ReceiptText, Send } from 'lucide-react';
+import { customerApi, formatError, InboundReceiptResponse, InventoryResponse, LeaseContractResponse, OutboundIssueResponse } from '@/lib/api';
+import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
+import { CalendarDays, MapPin, Package, ReceiptText, Send } from 'lucide-react';
 
 type WarehouseSummary = {
   warehouseId: number;
   warehouseName: string;
+  contractId?: number;
+  startDate?: string;
+  endDate?: string;
+  rentalPrice?: number;
   stockQuantity: number;
   batchCount: number;
   inboundCount: number;
@@ -20,6 +24,7 @@ type WarehouseSummary = {
 };
 
 export default function Warehouses() {
+  const [contracts, setContracts] = useState<LeaseContractResponse[]>([]);
   const [inventory, setInventory] = useState<InventoryResponse[]>([]);
   const [receipts, setReceipts] = useState<InboundReceiptResponse[]>([]);
   const [issues, setIssues] = useState<OutboundIssueResponse[]>([]);
@@ -31,11 +36,13 @@ export default function Warehouses() {
       setLoading(true);
       setError('');
       try {
-        const [inventoryData, receiptData, issueData] = await Promise.all([
+        const [contractData, inventoryData, receiptData, issueData] = await Promise.all([
+          customerApi.contracts(),
           customerApi.inventory(),
           customerApi.inboundReceipts(),
           customerApi.outboundIssues(),
         ]);
+        setContracts(contractData);
         setInventory(inventoryData);
         setReceipts(receiptData.content || []);
         setIssues(issueData.content || []);
@@ -51,19 +58,33 @@ export default function Warehouses() {
 
   const warehouses = useMemo(() => {
     const map = new Map<number, WarehouseSummary>();
-    const ensure = (warehouseId: number, warehouseName: string) => {
+    const ensure = (warehouseId: number, warehouseName: string, contract?: LeaseContractResponse) => {
       if (!map.has(warehouseId)) {
         map.set(warehouseId, {
           warehouseId,
           warehouseName,
+          contractId: contract?.contractId,
+          startDate: contract?.startDate,
+          endDate: contract?.endDate,
+          rentalPrice: contract?.rentalPrice,
           stockQuantity: 0,
           batchCount: 0,
           inboundCount: 0,
           outboundCount: 0,
         });
+      } else if (contract) {
+        const existing = map.get(warehouseId)!;
+        existing.contractId = contract.contractId;
+        existing.startDate = contract.startDate;
+        existing.endDate = contract.endDate;
+        existing.rentalPrice = contract.rentalPrice;
       }
       return map.get(warehouseId)!;
     };
+
+    contracts.forEach((contract) => {
+      ensure(contract.warehouseId, contract.warehouseName, contract);
+    });
 
     inventory.forEach((item) => {
       const row = ensure(item.warehouseId, item.warehouseName);
@@ -87,10 +108,10 @@ export default function Warehouses() {
     });
 
     return Array.from(map.values()).sort((a, b) => a.warehouseId - b.warehouseId);
-  }, [inventory, issues, receipts]);
+  }, [contracts, inventory, issues, receipts]);
 
   return (
-    <DashboardLayout headerTitle="My Warehouses" headerSubtitle="Warehouses inferred from your inventory and documents.">
+    <DashboardLayout headerTitle="My Warehouses" headerSubtitle="Warehouses from your active rental contracts.">
       <div className="space-y-6 p-8">
         {error && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
 
@@ -124,9 +145,9 @@ export default function Warehouses() {
         ) : warehouses.length === 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>No warehouse data yet</CardTitle>
+              <CardTitle>No active warehouse contracts yet</CardTitle>
               <CardDescription>
-                The backend does not currently expose a customer warehouse endpoint. Create inbound/outbound records or inventory first, then this page can infer warehouses in use.
+                Approved requests become active contracts here when the contract period includes today.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -147,6 +168,23 @@ export default function Warehouses() {
                   </div>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-4 grid grid-cols-1 gap-3 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Contract</p>
+                      <p className="font-semibold">{warehouse.contractId ? `#${warehouse.contractId}` : '-'}</p>
+                    </div>
+                    <div>
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <CalendarDays className="h-3 w-3" />
+                        Period
+                      </p>
+                      <p className="font-semibold">{warehouse.startDate && warehouse.endDate ? `${warehouse.startDate} - ${warehouse.endDate}` : '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Rental Price</p>
+                      <p className="font-semibold">{warehouse.rentalPrice == null ? '-' : formatCurrency(warehouse.rentalPrice)}</p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <p className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -181,33 +219,61 @@ export default function Warehouses() {
         <Card>
           <CardHeader>
             <CardTitle>Warehouse Source Data</CardTitle>
-            <CardDescription>Inventory rows grouped by warehouse.</CardDescription>
+            <CardDescription>Active contracts and inventory rows grouped by warehouse.</CardDescription>
           </CardHeader>
           <CardContent>
-            {inventory.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No inventory rows available.</p>
+            {contracts.length === 0 && inventory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active contract or inventory rows available.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Warehouse</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Batch</TableHead>
-                      <TableHead className="text-right">Quantity</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {inventory.map((item) => (
-                      <TableRow key={`${item.warehouseId}-${item.productId}-${item.batchNo}`}>
-                        <TableCell>{item.warehouseName} #{item.warehouseId}</TableCell>
-                        <TableCell>{item.productName}</TableCell>
-                        <TableCell>{item.batchNo}</TableCell>
-                        <TableCell className="text-right">{formatNumber(item.quantity)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="space-y-5">
+                {contracts.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Contract</TableHead>
+                          <TableHead>Warehouse</TableHead>
+                          <TableHead>Period</TableHead>
+                          <TableHead className="text-right">Price</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {contracts.map((contract) => (
+                          <TableRow key={contract.contractId}>
+                            <TableCell>#{contract.contractId}</TableCell>
+                            <TableCell>{contract.warehouseName} #{contract.warehouseId}</TableCell>
+                            <TableCell>{contract.startDate} - {contract.endDate}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(contract.rentalPrice)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                {inventory.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Warehouse</TableHead>
+                          <TableHead>Product</TableHead>
+                          <TableHead>Batch</TableHead>
+                          <TableHead className="text-right">Quantity</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {inventory.map((item) => (
+                          <TableRow key={`${item.warehouseId}-${item.productId}-${item.batchNo}`}>
+                            <TableCell>{item.warehouseName} #{item.warehouseId}</TableCell>
+                            <TableCell>{item.productName}</TableCell>
+                            <TableCell>{item.batchNo}</TableCell>
+                            <TableCell className="text-right">{formatNumber(item.quantity)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

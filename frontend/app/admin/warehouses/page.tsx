@@ -14,6 +14,7 @@ const defaultForm: WarehouseRequest = {
   warehouseName: '',
   address: '',
   area: 1,
+  rentalPrice: 1,
   status: 'Active',
 };
 
@@ -63,6 +64,7 @@ export default function AdminWarehouses() {
       warehouseName: warehouse.warehouseName,
       address: warehouse.address || '',
       area: warehouse.area || 1,
+      rentalPrice: Number(warehouse.rentalPrice || 1),
       status: warehouse.status,
     });
   };
@@ -110,7 +112,7 @@ export default function AdminWarehouses() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-5">
+            <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-6">
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="warehouseName">Name</Label>
                 <Input
@@ -133,6 +135,18 @@ export default function AdminWarehouses() {
                   step="0.01"
                   value={form.area || 1}
                   onChange={(event) => setForm({ ...form, area: Number(event.target.value) })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rentalPrice">Rental Price</Label>
+                <Input
+                  id="rentalPrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.rentalPrice}
+                  onChange={(event) => setForm({ ...form, rentalPrice: Number(event.target.value) })}
                   required
                 />
               </div>
@@ -188,6 +202,7 @@ export default function AdminWarehouses() {
                       <TableHead>Name</TableHead>
                       <TableHead>Address</TableHead>
                       <TableHead>Area</TableHead>
+                      <TableHead>Rental Price</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -204,6 +219,7 @@ export default function AdminWarehouses() {
                           </div>
                         </TableCell>
                         <TableCell>{warehouse.area?.toLocaleString() || 0}</TableCell>
+                        <TableCell>{Number(warehouse.rentalPrice || 0).toLocaleString()}</TableCell>
                         <TableCell>{warehouse.status}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">

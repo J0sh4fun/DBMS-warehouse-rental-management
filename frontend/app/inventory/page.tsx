@@ -15,6 +15,7 @@ import {
   formatError,
   InboundReceiptResponse,
   InventoryResponse,
+  LeaseContractResponse,
   ProductResponse,
   SupplierResponse,
 } from '@/lib/api';
@@ -66,6 +67,7 @@ export default function Inventory() {
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierResponse[]>([]);
+  const [contracts, setContracts] = useState<LeaseContractResponse[]>([]);
   const [inventory, setInventory] = useState<InventoryResponse[]>([]);
   const [receipts, setReceipts] = useState<InboundReceiptResponse[]>([]);
   const [categoryName, setCategoryName] = useState('');
@@ -84,16 +86,18 @@ export default function Inventory() {
     setLoading(true);
     setError('');
     try {
-      const [categoryData, productData, supplierData, inventoryData, receiptData] = await Promise.all([
+      const [categoryData, productData, supplierData, contractData, inventoryData, receiptData] = await Promise.all([
         customerApi.categories(),
         customerApi.products(),
         customerApi.suppliers(),
+        customerApi.contracts(),
         customerApi.inventory(),
         customerApi.inboundReceipts(),
       ]);
       setCategories(categoryData);
       setProducts(productData);
       setSuppliers(supplierData);
+      setContracts(contractData);
       setInventory(inventoryData);
       setReceipts(receiptData.content || []);
     } catch (err) {
@@ -111,10 +115,11 @@ export default function Inventory() {
   const productById = useMemo(() => new Map(products.map((product) => [product.productId, product])), [products]);
   const warehouseOptions = useMemo(() => {
     const map = new Map<number, string>();
+    contracts.forEach((contract) => map.set(contract.warehouseId, contract.warehouseName));
     inventory.forEach((item) => map.set(item.warehouseId, item.warehouseName));
     receipts.forEach((receipt) => map.set(receipt.warehouseId, receipt.warehouseName));
     return Array.from(map, ([warehouseId, warehouseName]) => ({ warehouseId, warehouseName }));
-  }, [inventory, receipts]);
+  }, [contracts, inventory, receipts]);
 
   const filteredInventory = inventory.filter(
     (item) =>
@@ -344,15 +349,23 @@ export default function Inventory() {
                 <CardContent>
                   <form onSubmit={handleInboundSubmit} className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Warehouse ID</Label>
-                      <Input list="warehouse-options" type="number" min="1" value={inboundForm.warehouseId} onChange={(event) => setInboundForm({ ...inboundForm, warehouseId: event.target.value })} required />
-                      <datalist id="warehouse-options">
+                      <Label>Warehouse</Label>
+                      <select
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                        value={inboundForm.warehouseId}
+                        onChange={(event) => setInboundForm({ ...inboundForm, warehouseId: event.target.value })}
+                        required
+                      >
+                        <option value="">Select leased warehouse</option>
                         {warehouseOptions.map((warehouse) => (
                           <option key={warehouse.warehouseId} value={warehouse.warehouseId}>
-                            {warehouse.warehouseName}
+                            {warehouse.warehouseName} #{warehouse.warehouseId}
                           </option>
                         ))}
-                      </datalist>
+                      </select>
+                      {warehouseOptions.length === 0 && (
+                        <p className="text-xs text-muted-foreground">No active warehouse contract is available for inbound receipts.</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label>Supplier</Label>
@@ -364,6 +377,9 @@ export default function Inventory() {
                           </option>
                         ))}
                       </select>
+                      {suppliers.length === 0 && (
+                        <p className="text-xs text-muted-foreground">No suppliers yet. Create one in the Suppliers tab.</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label>Receipt Date</Label>
@@ -400,7 +416,7 @@ export default function Inventory() {
                         <Input type="date" value={inboundForm.expiryDate} onChange={(event) => setInboundForm({ ...inboundForm, expiryDate: event.target.value })} />
                       </div>
                     </div>
-                    <Button type="submit" disabled={saving || products.length === 0 || suppliers.length === 0}>
+                    <Button type="submit" disabled={saving || warehouseOptions.length === 0 || products.length === 0 || suppliers.length === 0}>
                       <Plus className="h-4 w-4" />
                       {saving ? 'Saving...' : 'Create Draft'}
                     </Button>

@@ -19,4 +19,6 @@ public interface LeaseContractService {
     List<LeaseContractResponse> findAll(Integer adminId, LeaseContractStatus status);
 
     LeaseContractResponse findById(Integer adminId, Integer contractId);
+
+    List<LeaseContractResponse> findCurrentForCustomer(Integer customerId);
 }

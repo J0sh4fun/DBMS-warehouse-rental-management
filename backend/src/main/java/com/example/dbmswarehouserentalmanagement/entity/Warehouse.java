@@ -18,6 +18,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "Warehouse")
 @Getter
@@ -40,6 +42,9 @@ public class Warehouse {
 
     @Column(name = "Area")
     private Float area;
+
+    @Column(name = "RentalPrice", precision = 18, scale = 2)
+    private BigDecimal rentalPrice;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "Status", nullable = false)
