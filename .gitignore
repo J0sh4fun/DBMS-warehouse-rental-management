@@ -41,6 +41,7 @@ out/
 **/.env.test.local
 **/.env.production.local
 **/*-local.properties
+test.md
 
 # GLOBAL FAIL-SAFES
 # Node.js / Next.js (Frontend)

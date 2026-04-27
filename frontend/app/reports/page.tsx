@@ -1,209 +1,228 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
-import { Download, Calendar } from 'lucide-react';
+  customerApi,
+  ExpiringBatchResponse,
+  formatError,
+  InventorySummaryResponse,
+  InventoryValueResponse,
+  TopProductResponse,
+} from '@/lib/api';
+import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Calendar, RotateCw } from 'lucide-react';
 
-const inventoryData = [
-  { month: 'Jan', stock: 12000, value: 45000 },
-  { month: 'Feb', stock: 14200, value: 52000 },
-  { month: 'Mar', stock: 13800, value: 48500 },
-  { month: 'Apr', stock: 15600, value: 58000 },
-  { month: 'May', stock: 16200, value: 61000 },
-  { month: 'Jun', stock: 15800, value: 59500 },
-];
+function defaultExpiryDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return date.toISOString().slice(0, 10);
+}
 
-const salesData = [
-  { week: 'Week 1', orders: 45, revenue: 12500 },
-  { week: 'Week 2', orders: 52, revenue: 14800 },
-  { week: 'Week 3', orders: 48, revenue: 13600 },
-  { week: 'Week 4', orders: 61, revenue: 17200 },
-];
+function currentMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
 
 export default function Reports() {
+  const [inventoryValue, setInventoryValue] = useState<InventoryValueResponse | null>(null);
+  const [expiringBatches, setExpiringBatches] = useState<ExpiringBatchResponse[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProductResponse[]>([]);
+  const [summary, setSummary] = useState<InventorySummaryResponse[]>([]);
+  const [expiresOnOrBefore, setExpiresOnOrBefore] = useState(defaultExpiryDate());
+  const [month, setMonth] = useState(currentMonth());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [valueData, expiringData, topProductData, summaryData] = await Promise.all([
+        customerApi.inventoryValue(),
+        customerApi.expiringBatches(expiresOnOrBefore),
+        customerApi.topProducts(month, 10),
+        customerApi.inventorySummary(),
+      ]);
+      setInventoryValue(valueData);
+      setExpiringBatches(expiringData);
+      setTopProducts(topProductData);
+      setSummary(summaryData);
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const totalStock = summary.reduce((sum, item) => sum + item.totalQuantity, 0);
+  const lowStockCount = summary.filter((item) => item.totalQuantity > 0 && item.totalQuantity <= 10).length;
+  const expiringQuantity = expiringBatches.reduce((sum, batch) => sum + batch.currentQuantity, 0);
+
+  const stockChart = useMemo(
+    () => summary.slice(0, 10).map((item) => ({ name: item.productName, quantity: item.totalQuantity })),
+    [summary]
+  );
+
   return (
-    <DashboardLayout
-      headerTitle="Reports"
-      headerSubtitle="View detailed analytics and reports"
-    >
-      <div className="p-8 space-y-8">
-        {/* Date Range Filter */}
+    <DashboardLayout headerTitle="Reports" headerSubtitle="Inventory value, expiry tracking, and top outbound products.">
+      <div className="space-y-6 p-8">
+        {error && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
+
         <Card>
           <CardHeader>
             <CardTitle>Report Filters</CardTitle>
+            <CardDescription>These filters map to the backend report query parameters.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-                <select className="px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm">
-                  <option>Last 30 Days</option>
-                  <option>Last 60 Days</option>
-                  <option>Last 90 Days</option>
-                  <option>This Year</option>
-                </select>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">Expiring on or before</label>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Input type="date" value={expiresOnOrBefore} onChange={(event) => setExpiresOnOrBefore(event.target.value)} />
+                </div>
               </div>
-              <Button variant="outline">
-                <Download className="w-4 h-4 mr-2" />
-                Export to CSV
-              </Button>
-              <Button variant="outline">
-                <Download className="w-4 h-4 mr-2" />
-                Export to PDF
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">Top products month</label>
+                <Input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
+              </div>
+              <Button onClick={load} disabled={loading}>
+                <RotateCw className="h-4 w-4" />
+                {loading ? 'Loading...' : 'Refresh'}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Avg Daily Orders</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Inventory Value</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">156</div>
-              <p className="text-xs text-muted-foreground mt-1">+12% from last month</p>
+              <div className="text-3xl font-bold">{loading ? '-' : formatCurrency(inventoryValue?.totalValue)}</div>
+              <p className="text-xs text-muted-foreground">Quantity x current price</p>
             </CardContent>
           </Card>
-
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Avg Order Value</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Stock</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">$287</div>
-              <p className="text-xs text-muted-foreground mt-1">+5% from last month</p>
+              <div className="text-3xl font-bold">{loading ? '-' : formatNumber(totalStock)}</div>
+              <p className="text-xs text-muted-foreground">Across all products</p>
             </CardContent>
           </Card>
-
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Inventory Turnover</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Expiring Batches</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">4.2x</div>
-              <p className="text-xs text-muted-foreground mt-1">Healthy turnover rate</p>
+              <div className="text-3xl font-bold">{loading ? '-' : expiringBatches.length}</div>
+              <p className="text-xs text-muted-foreground">{formatNumber(expiringQuantity)} units affected</p>
             </CardContent>
           </Card>
-
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Fill Rate</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Low Stock Products</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">97.8%</div>
-              <p className="text-xs text-muted-foreground mt-1">Order fulfillment rate</p>
+              <div className="text-3xl font-bold">{loading ? '-' : lowStockCount}</div>
+              <p className="text-xs text-muted-foreground">Threshold: 10 units</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Inventory Trends</CardTitle>
-              <CardDescription>Stock quantity and inventory value over time</CardDescription>
+              <CardTitle>Top Products Exported</CardTitle>
+              <CardDescription>From `/api/reports/top-products`.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={inventoryData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--color-border))" />
-                  <XAxis stroke="hsl(var(--color-muted-foreground))" />
-                  <YAxis stroke="hsl(var(--color-muted-foreground))" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--color-card))',
-                      border: '1px solid hsl(var(--color-border))',
-                      borderRadius: 'calc(var(--radius))',
-                    }}
-                  />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="stock"
-                    stroke="hsl(var(--color-chart-1))"
-                    strokeWidth={2}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke="hsl(var(--color-chart-2))"
-                    strokeWidth={2}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {topProducts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No completed outbound data for this month.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={topProducts}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="productName" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="totalQuantity" fill="var(--primary)" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Weekly Sales Performance</CardTitle>
-              <CardDescription>Orders and revenue by week</CardDescription>
+              <CardTitle>Inventory Summary</CardTitle>
+              <CardDescription>Top 10 products by stock quantity.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={salesData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--color-border))" />
-                  <XAxis stroke="hsl(var(--color-muted-foreground))" />
-                  <YAxis stroke="hsl(var(--color-muted-foreground))" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--color-card))',
-                      border: '1px solid hsl(var(--color-border))',
-                      borderRadius: 'calc(var(--radius))',
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="orders" fill="hsl(var(--color-chart-1))" />
-                  <Bar dataKey="revenue" fill="hsl(var(--color-chart-2))" />
-                </BarChart>
-              </ResponsiveContainer>
+              {stockChart.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No inventory summary available.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stockChart}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="quantity" fill="var(--accent)" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Warehouse Performance */}
         <Card>
           <CardHeader>
-            <CardTitle>Warehouse Performance</CardTitle>
-            <CardDescription>Key metrics by warehouse</CardDescription>
+            <CardTitle>Expiring Batches</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {['Warehouse A', 'Warehouse B', 'Warehouse C', 'Warehouse D'].map((warehouse) => (
-                <div key={warehouse} className="p-4 border border-border rounded-lg">
-                  <h4 className="font-semibold text-foreground mb-4">{warehouse}</h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Orders Handled</span>
-                      <span className="font-semibold text-foreground">287</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Avg Processing Time</span>
-                      <span className="font-semibold text-foreground">2.3 hrs</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Efficiency Rate</span>
-                      <span className="font-semibold text-foreground">94.5%</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {expiringBatches.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No batches are expiring by {formatDate(expiresOnOrBefore)}.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Warehouse</TableHead>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Batch</TableHead>
+                      <TableHead className="text-right">Quantity</TableHead>
+                      <TableHead>Expiry Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {expiringBatches.map((batch) => (
+                      <TableRow key={`${batch.receiptId}-${batch.productId}-${batch.batchNo}`}>
+                        <TableCell>{batch.warehouseName} #{batch.warehouseId}</TableCell>
+                        <TableCell>{batch.supplierName}</TableCell>
+                        <TableCell>{batch.productName}</TableCell>
+                        <TableCell className="font-medium">{batch.batchNo}</TableCell>
+                        <TableCell className="text-right">{formatNumber(batch.currentQuantity)}</TableCell>
+                        <TableCell>{formatDate(batch.expiryDate)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
