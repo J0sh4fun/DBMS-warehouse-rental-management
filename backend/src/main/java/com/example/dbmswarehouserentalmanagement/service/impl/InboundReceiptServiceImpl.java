@@ -7,18 +7,16 @@ import com.example.dbmswarehouserentalmanagement.dto.response.InboundReceiptResp
 import com.example.dbmswarehouserentalmanagement.dto.response.PagedResponse;
 import com.example.dbmswarehouserentalmanagement.entity.InboundReceipt;
 import com.example.dbmswarehouserentalmanagement.entity.InboundReceiptDetail;
-import com.example.dbmswarehouserentalmanagement.entity.Inventory;
 import com.example.dbmswarehouserentalmanagement.entity.Product;
 import com.example.dbmswarehouserentalmanagement.entity.Supplier;
 import com.example.dbmswarehouserentalmanagement.entity.Warehouse;
 import com.example.dbmswarehouserentalmanagement.entity.enums.LeaseContractStatus;
 import com.example.dbmswarehouserentalmanagement.entity.enums.ReceiptStatus;
 import com.example.dbmswarehouserentalmanagement.entity.id.InboundReceiptDetailId;
-import com.example.dbmswarehouserentalmanagement.entity.id.InventoryId;
 import com.example.dbmswarehouserentalmanagement.exception.ResourceNotFoundException;
+import com.example.dbmswarehouserentalmanagement.repository.DbmsJdbcRepository;
 import com.example.dbmswarehouserentalmanagement.repository.InboundReceiptDetailRepository;
 import com.example.dbmswarehouserentalmanagement.repository.InboundReceiptRepository;
-import com.example.dbmswarehouserentalmanagement.repository.InventoryRepository;
 import com.example.dbmswarehouserentalmanagement.repository.LeaseContractRepository;
 import com.example.dbmswarehouserentalmanagement.repository.ProductRepository;
 import com.example.dbmswarehouserentalmanagement.repository.SupplierRepository;
@@ -43,7 +41,7 @@ public class InboundReceiptServiceImpl implements InboundReceiptService {
 
     private final InboundReceiptRepository inboundReceiptRepository;
     private final InboundReceiptDetailRepository inboundReceiptDetailRepository;
-    private final InventoryRepository inventoryRepository;
+    private final DbmsJdbcRepository dbmsJdbcRepository;
     private final SupplierRepository supplierRepository;
     private final ProductRepository productRepository;
     private final WarehouseRepository warehouseRepository;
@@ -72,10 +70,7 @@ public class InboundReceiptServiceImpl implements InboundReceiptService {
 
         List<InboundReceiptDetail> details = buildDetails(customerId, savedReceipt, request.details());
         inboundReceiptDetailRepository.saveAll(details);
-
-        if (status == ReceiptStatus.Completed) {
-            applyInventoryIncrease(savedReceipt, details);
-        }
+        inboundReceiptDetailRepository.flush();
 
         return toResponse(savedReceipt, details);
     }
@@ -123,7 +118,7 @@ public class InboundReceiptServiceImpl implements InboundReceiptService {
             throw new IllegalStateException("Inbound receipt has no details");
         }
 
-        applyInventoryIncrease(receipt, details);
+        dbmsJdbcRepository.completeInboundReceipt(receiptId);
         receipt.setStatus(ReceiptStatus.Completed);
         return toResponse(receipt, details);
     }
@@ -229,30 +224,6 @@ public class InboundReceiptServiceImpl implements InboundReceiptService {
                 .importPrice(request.importPrice())
                 .expiryDate(request.expiryDate())
                 .build();
-    }
-
-    private void applyInventoryIncrease(InboundReceipt receipt, List<InboundReceiptDetail> details) {
-        LocalDateTime now = LocalDateTime.now();
-        for (InboundReceiptDetail detail : details) {
-            InventoryId inventoryId = new InventoryId(
-                    receipt.getWarehouse().getWarehouseId(),
-                    detail.getProduct().getProductId(),
-                    detail.getId().getBatchNo()
-            );
-
-            Inventory inventory = inventoryRepository.findByIdForUpdate(inventoryId)
-                    .orElseGet(() -> Inventory.builder()
-                            .id(inventoryId)
-                            .warehouse(receipt.getWarehouse())
-                            .product(detail.getProduct())
-                            .quantity(0)
-                            .lastUpdated(now)
-                            .build());
-
-            inventory.setQuantity(inventory.getQuantity() + detail.getQuantity());
-            inventory.setLastUpdated(now);
-            inventoryRepository.save(inventory);
-        }
     }
 
     private void ensureNoDuplicateBatches(List<InboundReceiptDetail> details) {

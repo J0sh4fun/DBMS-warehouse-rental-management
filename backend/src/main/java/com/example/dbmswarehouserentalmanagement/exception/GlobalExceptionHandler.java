@@ -1,8 +1,11 @@
 package com.example.dbmswarehouserentalmanagement.exception;
 
+import jakarta.persistence.PersistenceException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
@@ -10,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,6 +49,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        String sqlBusinessMessage = extractSqlBusinessMessage(ex);
+        if (sqlBusinessMessage != null) {
+            return build(HttpStatus.BAD_REQUEST, sqlBusinessMessage);
+        }
         return build(HttpStatus.CONFLICT, "Operation violates existing data constraints");
     }
 
@@ -63,6 +71,15 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler({DataAccessException.class, JpaSystemException.class, PersistenceException.class})
+    public ResponseEntity<Map<String, Object>> handleDataAccess(RuntimeException ex) {
+        String sqlBusinessMessage = extractSqlBusinessMessage(ex);
+        if (sqlBusinessMessage != null) {
+            return build(HttpStatus.BAD_REQUEST, sqlBusinessMessage);
+        }
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected database error");
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
         return build(HttpStatus.FORBIDDEN, ex.getMessage());
@@ -79,5 +96,16 @@ public class GlobalExceptionHandler {
         body.put("status", status.value());
         body.put("error", message);
         return ResponseEntity.status(status).body(body);
+    }
+
+    private String extractSqlBusinessMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SQLException sqlException && "45000".equals(sqlException.getSQLState())) {
+                return sqlException.getMessage();
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 }

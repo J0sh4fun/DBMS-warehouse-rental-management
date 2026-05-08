@@ -4,7 +4,6 @@ import com.example.dbmswarehouserentalmanagement.entity.LeaseContract;
 import com.example.dbmswarehouserentalmanagement.entity.enums.LeaseContractStatus;
 import com.example.dbmswarehouserentalmanagement.entity.enums.WarehouseStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -116,19 +115,6 @@ public interface LeaseContractRepository extends JpaRepository<LeaseContract, In
             @Param("statuses") Collection<LeaseContractStatus> statuses,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
-    );
-
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("""
-            update LeaseContract contract
-            set contract.status = :expiredStatus
-            where contract.status in :expirableStatuses
-              and contract.endDate < :today
-            """)
-    int expireOverdueContracts(
-            @Param("today") LocalDate today,
-            @Param("expiredStatus") LeaseContractStatus expiredStatus,
-            @Param("expirableStatuses") Collection<LeaseContractStatus> expirableStatuses
     );
 
     boolean existsByWarehouseWarehouseId(Integer warehouseId);

@@ -6,19 +6,16 @@ import com.example.dbmswarehouserentalmanagement.dto.response.OutboundIssueDetai
 import com.example.dbmswarehouserentalmanagement.dto.response.OutboundIssueResponse;
 import com.example.dbmswarehouserentalmanagement.dto.response.PagedResponse;
 import com.example.dbmswarehouserentalmanagement.entity.Buyer;
-import com.example.dbmswarehouserentalmanagement.entity.Inventory;
 import com.example.dbmswarehouserentalmanagement.entity.OutboundIssue;
 import com.example.dbmswarehouserentalmanagement.entity.OutboundIssueDetail;
 import com.example.dbmswarehouserentalmanagement.entity.Product;
 import com.example.dbmswarehouserentalmanagement.entity.Warehouse;
 import com.example.dbmswarehouserentalmanagement.entity.enums.IssueStatus;
 import com.example.dbmswarehouserentalmanagement.entity.enums.LeaseContractStatus;
-import com.example.dbmswarehouserentalmanagement.entity.id.InventoryId;
 import com.example.dbmswarehouserentalmanagement.entity.id.OutboundIssueDetailId;
-import com.example.dbmswarehouserentalmanagement.exception.InsufficientInventoryException;
 import com.example.dbmswarehouserentalmanagement.exception.ResourceNotFoundException;
 import com.example.dbmswarehouserentalmanagement.repository.BuyerRepository;
-import com.example.dbmswarehouserentalmanagement.repository.InventoryRepository;
+import com.example.dbmswarehouserentalmanagement.repository.DbmsJdbcRepository;
 import com.example.dbmswarehouserentalmanagement.repository.LeaseContractRepository;
 import com.example.dbmswarehouserentalmanagement.repository.OutboundIssueDetailRepository;
 import com.example.dbmswarehouserentalmanagement.repository.OutboundIssueRepository;
@@ -44,7 +41,7 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
 
     private final OutboundIssueRepository outboundIssueRepository;
     private final OutboundIssueDetailRepository outboundIssueDetailRepository;
-    private final InventoryRepository inventoryRepository;
+    private final DbmsJdbcRepository dbmsJdbcRepository;
     private final BuyerRepository buyerRepository;
     private final ProductRepository productRepository;
     private final WarehouseRepository warehouseRepository;
@@ -73,10 +70,7 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
 
         List<OutboundIssueDetail> details = buildDetails(customerId, savedIssue, request.details());
         outboundIssueDetailRepository.saveAll(details);
-
-        if (status == IssueStatus.Completed) {
-            applyInventoryDecrease(savedIssue, details);
-        }
+        outboundIssueDetailRepository.flush();
 
         return toResponse(savedIssue, details);
     }
@@ -124,7 +118,7 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
             throw new IllegalStateException("Outbound issue has no details");
         }
 
-        applyInventoryDecrease(issue, details);
+        dbmsJdbcRepository.completeOutboundIssue(issueId);
         issue.setStatus(IssueStatus.Completed);
         return toResponse(issue, details);
     }
@@ -229,31 +223,6 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
                 .quantity(request.quantity())
                 .sellingPrice(request.sellingPrice())
                 .build();
-    }
-
-    private void applyInventoryDecrease(OutboundIssue issue, List<OutboundIssueDetail> details) {
-        LocalDateTime now = LocalDateTime.now();
-        for (OutboundIssueDetail detail : details) {
-            InventoryId inventoryId = new InventoryId(
-                    issue.getWarehouse().getWarehouseId(),
-                    detail.getProduct().getProductId(),
-                    detail.getId().getBatchNo()
-            );
-
-            Inventory inventory = inventoryRepository.findByIdForUpdate(inventoryId)
-                    .orElseThrow(() -> new InsufficientInventoryException("Batch is not available in inventory: "
-                            + detail.getProduct().getProductId() + "/" + detail.getId().getBatchNo()));
-
-            if (inventory.getQuantity() < detail.getQuantity()) {
-                throw new InsufficientInventoryException("Insufficient inventory for product "
-                        + detail.getProduct().getProductId() + ", batch " + detail.getId().getBatchNo()
-                        + ". Available: " + inventory.getQuantity() + ", requested: " + detail.getQuantity());
-            }
-
-            inventory.setQuantity(inventory.getQuantity() - detail.getQuantity());
-            inventory.setLastUpdated(now);
-            inventoryRepository.save(inventory);
-        }
     }
 
     private void ensureNoDuplicateBatches(List<OutboundIssueDetail> details) {
