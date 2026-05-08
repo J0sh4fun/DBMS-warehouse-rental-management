@@ -73,20 +73,20 @@ public class DbmsJdbcRepository {
 
         return namedParameterJdbcTemplate.query("""
                         select
-                          ReceiptId,
-                          WarehouseId,
-                          WarehouseName,
-                          SupplierId,
-                          SupplierName,
-                          ProductId,
-                          ProductName,
-                          BatchNo,
-                          CurrentQuantity,
-                          ExpiryDate
+                          receipt_id as ReceiptId,
+                          warehouse_id as WarehouseId,
+                          warehouse_name as WarehouseName,
+                          supplier_id as SupplierId,
+                          supplier_name as SupplierName,
+                          product_id as ProductId,
+                          product_name as ProductName,
+                          batch_no as BatchNo,
+                          current_quantity as CurrentQuantity,
+                          expiry_date as ExpiryDate
                         from vw_expiring_batches
-                        where CustomerId = :customerId
-                          and DaysUntilExpiry between 0 and :daysAhead
-                        order by ExpiryDate asc, ProductName asc, BatchNo asc, ReceiptId asc
+                        where customer_id = :customerId
+                          and days_until_expiry between 0 and :daysAhead
+                        order by expiry_date asc, product_name asc, batch_no asc, receipt_id asc
                         """,
                 parameters,
                 (resultSet, rowNum) -> new ExpiringBatchResponse(
@@ -112,15 +112,15 @@ public class DbmsJdbcRepository {
 
         return namedParameterJdbcTemplate.query("""
                         select
-                          ProductId,
-                          ProductName,
-                          sum(TotalQuantityExported) as TotalQuantity
+                          product_id as ProductId,
+                          product_name as ProductName,
+                          sum(total_quantity_exported) as TotalQuantity
                         from vw_monthly_product_exports
-                        where CustomerId = :customerId
-                          and ExportYear = :year
-                          and ExportMonth = :month
-                        group by ProductId, ProductName
-                        order by TotalQuantity desc, sum(TotalRevenue) desc
+                        where customer_id = :customerId
+                          and export_year = :year
+                          and export_month = :month
+                        group by product_id, product_name
+                        order by TotalQuantity desc, sum(total_revenue) desc
                         limit :limit
                         """,
                 parameters,
@@ -143,16 +143,16 @@ public class DbmsJdbcRepository {
 
         return namedParameterJdbcTemplate.query("""
                         select
-                          ProductId,
-                          ProductName,
-                          UnitOfMeasure,
-                          sum(TotalQuantity) as TotalQuantity
+                          product_id as ProductId,
+                          product_name as ProductName,
+                          unit_of_measure as UnitOfMeasure,
+                          sum(total_quantity) as TotalQuantity
                         from vw_inventory_summary
-                        where CustomerId = :customerId
-                          and (:warehouseId is null or WarehouseId = :warehouseId)
-                          and (:productId is null or ProductId = :productId)
-                        group by ProductId, ProductName, UnitOfMeasure
-                        order by ProductName asc
+                        where customer_id = :customerId
+                          and (:warehouseId is null or warehouse_id = :warehouseId)
+                          and (:productId is null or product_id = :productId)
+                        group by product_id, product_name, unit_of_measure
+                        order by product_name asc
                         """,
                 parameters,
                 (resultSet, rowNum) -> new InventorySummaryResponse(
@@ -166,17 +166,17 @@ public class DbmsJdbcRepository {
     public List<AdminCustomerResponse> findCurrentTenants(Integer adminId) {
         return jdbcTemplate.query("""
                         select distinct
-                          c.CustomerId,
-                          c.CustomerName,
-                          c.UserName,
-                          c.Email,
-                          c.PhoneNumber,
-                          c.Address,
-                          c.CreatedAt
-                        from Customer c
-                        join vw_current_tenants t on t.CustomerId = c.CustomerId
-                        where t.AdminId = ?
-                        order by c.CustomerName asc
+                          t.customer_id as CustomerId,
+                          t.customer_name as CustomerName,
+                          t.customer_user_name as UserName,
+                          t.customer_email as Email,
+                          t.phone_number as PhoneNumber,
+                          c.address as Address,
+                          c.created_at as CreatedAt
+                        from vw_current_tenants t
+                        join customer c on c.customer_id = t.customer_id
+                        where t.admin_id = ?
+                        order by t.customer_name asc
                         """,
                 (resultSet, rowNum) -> new AdminCustomerResponse(
                         resultSet.getInt("CustomerId"),

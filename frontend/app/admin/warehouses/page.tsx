@@ -13,8 +13,8 @@ import { adminApi, formatError, WarehouseRequest, WarehouseResponse } from '@/li
 const defaultForm: WarehouseRequest = {
   warehouseName: '',
   address: '',
-  area: 1,
-  rentalPrice: 1,
+  area: undefined,
+  rentalPrice: 0,
   status: 'Active',
 };
 
@@ -63,8 +63,8 @@ export default function AdminWarehouses() {
     setForm({
       warehouseName: warehouse.warehouseName,
       address: warehouse.address || '',
-      area: warehouse.area || 1,
-      rentalPrice: Number(warehouse.rentalPrice || 1),
+      area: warehouse.area || undefined,
+      rentalPrice: Number(warehouse.rentalPrice || 0),
       status: warehouse.status,
     });
   };
@@ -127,26 +127,28 @@ export default function AdminWarehouses() {
                 <Input id="address" value={form.address || ''} onChange={(event) => setForm({ ...form, address: event.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="area">Area</Label>
+                <Label htmlFor="area">Area (m²)</Label>
                 <Input
                   id="area"
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  value={form.area || 1}
-                  onChange={(event) => setForm({ ...form, area: Number(event.target.value) })}
+                  type="text"
+                  value={form.area || ''}
+                  onChange={(event) => {
+                    const rawValue = event.target.value.replace(/\D/g, '');
+                    setForm({ ...form, area: rawValue ? Number(rawValue) : undefined });
+                  }}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="rentalPrice">Rental Price</Label>
+                <Label htmlFor="rentalPrice">Rental Price (VNĐ)</Label>
                 <Input
                   id="rentalPrice"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.rentalPrice}
-                  onChange={(event) => setForm({ ...form, rentalPrice: Number(event.target.value) })}
+                  type="text"
+                  value={form.rentalPrice ? form.rentalPrice.toLocaleString('vi-VN') : ''}
+                  onChange={(event) => {
+                    const rawValue = event.target.value.replace(/\./g, '').replace(/\D/g, '');
+                    setForm({ ...form, rentalPrice: rawValue ? Number(rawValue) : 0 });
+                  }}
                   required
                 />
               </div>

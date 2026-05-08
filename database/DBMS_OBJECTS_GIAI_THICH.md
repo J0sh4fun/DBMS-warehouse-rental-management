@@ -8,6 +8,12 @@ Phạm vi:
 - `7` stored procedure
 - `23` trigger
 
+Quy ước ghi tên object trong tài liệu này:
+- `[VIEW]` là view
+- `[FUNCTION]` là function
+- `[PROCEDURE]` là stored procedure
+- `[TRIGGER]` là trigger
+
 Lưu ý khi demo:
 - Database runtime của project là `warehouse_db`.
 - Nếu đã import [sample_data.sql](/d:/Working/IdeaProjects/DBMS-warehouse-rental-management-merge-check/database/sample_data.sql:1), có thể dùng trực tiếp các ID mẫu như `9101`, `9701`, `9702`, `9802`, `9902`.
@@ -31,10 +37,10 @@ Kiến trúc của project này đẩy một phần logic nghiệp vụ xuống 
 
 | View | Nó làm gì | Tác dụng | Mục đích nghiệp vụ |
 |---|---|---|---|
-| `vw_current_tenants` | Join `lease_contract`, `customer`, `warehouse`, `admin`; chỉ lấy hợp đồng `Active` và còn hiệu lực theo ngày hiện tại | Cho ra danh sách khách thuê đang sử dụng kho | Hỗ trợ admin xem khách thuê hiện tại theo kho mình quản lý |
-| `vw_inventory_summary` | Tổng hợp tồn kho theo khách hàng, kho, sản phẩm, category; tính `total_quantity`, `total_inventory_value`, `batch_count` | Biến dữ liệu tồn kho chi tiết theo batch thành báo cáo tổng hợp dễ đọc | Hỗ trợ dashboard tồn kho và báo cáo giá trị hàng hóa |
-| `vw_expiring_batches` | Lấy các lô nhập đã hoàn tất, nối với `inventory` để biết số lượng hiện còn, hạn dùng và số ngày còn lại | Theo dõi lô sắp hết hạn nhưng chỉ tính phần còn tồn thật | Hỗ trợ cảnh báo hàng sắp hết hạn và xử lý hàng tồn |
-| `vw_monthly_product_exports` | Tổng hợp lượng xuất và doanh thu theo tháng từ `outbound_issue` và `outbound_issue_detail` | Cho ra dữ liệu nền để lọc top sản phẩm xuất nhiều | Hỗ trợ báo cáo bán hàng/xuất kho theo tháng |
+| [VIEW] `vw_current_tenants` | Join `lease_contract`, `customer`, `warehouse`, `admin`; chỉ lấy hợp đồng `Active` và còn hiệu lực theo ngày hiện tại | Cho ra danh sách khách thuê đang sử dụng kho | Hỗ trợ admin xem khách thuê hiện tại theo kho mình quản lý |
+| [VIEW] `vw_inventory_summary` | Tổng hợp tồn kho theo khách hàng, kho, sản phẩm, category; tính `total_quantity`, `total_inventory_value`, `batch_count` | Biến dữ liệu tồn kho chi tiết theo batch thành báo cáo tổng hợp dễ đọc | Hỗ trợ dashboard tồn kho và báo cáo giá trị hàng hóa |
+| [VIEW] `vw_expiring_batches` | Lấy các lô nhập đã hoàn tất, nối với `inventory` để biết số lượng hiện còn, hạn dùng và số ngày còn lại | Theo dõi lô sắp hết hạn nhưng chỉ tính phần còn tồn thật | Hỗ trợ cảnh báo hàng sắp hết hạn và xử lý hàng tồn |
+| [VIEW] `vw_monthly_product_exports` | Tổng hợp lượng xuất và doanh thu theo tháng từ `outbound_issue` và `outbound_issue_detail` | Cho ra dữ liệu nền để lọc top sản phẩm xuất nhiều | Hỗ trợ báo cáo bán hàng/xuất kho theo tháng |
 
 ### Query nhanh để demo view
 
@@ -62,9 +68,9 @@ ORDER BY total_quantity_exported DESC;
 
 | Function | Input | Output | Nó làm gì | Mục đích |
 |---|---|---|---|---|
-| `fn_inventory_batch_value` | `warehouse_id`, `product_id`, `batch_no` | `DECIMAL(18,2)` | Tính giá trị tồn kho của đúng một lô hàng trong một kho | Dùng khi cần biết giá trị tiền của từng batch |
-| `fn_customer_inventory_value` | `customer_id` | `DECIMAL(18,2)` | Tính tổng giá trị tồn kho của toàn bộ sản phẩm thuộc một khách hàng | Dùng cho báo cáo tổng tài sản lưu kho của khách |
-| `fn_available_inventory` | `warehouse_id`, `product_id`, `batch_no` | `INT` | Trả về số lượng tồn khả dụng hiện tại của một batch | Dùng trong trigger/procedure để chặn xuất vượt tồn hoặc rollback sai |
+| [FUNCTION] `fn_inventory_batch_value` | `warehouse_id`, `product_id`, `batch_no` | `DECIMAL(18,2)` | Tính giá trị tồn kho của đúng một lô hàng trong một kho | Dùng khi cần biết giá trị tiền của từng batch |
+| [FUNCTION] `fn_customer_inventory_value` | `customer_id` | `DECIMAL(18,2)` | Tính tổng giá trị tồn kho của toàn bộ sản phẩm thuộc một khách hàng | Dùng cho báo cáo tổng tài sản lưu kho của khách |
+| [FUNCTION] `fn_available_inventory` | `warehouse_id`, `product_id`, `batch_no` | `INT` | Trả về số lượng tồn khả dụng hiện tại của một batch | Dùng trong trigger/procedure để chặn xuất vượt tồn hoặc rollback sai |
 
 ### Query nhanh để demo function
 
@@ -117,7 +123,7 @@ FROM lease_contract
 ORDER BY contract_id;
 ```
 
-### 4.1. `sp_expire_lease_contracts()`
+### 4.1. [PROCEDURE] `sp_expire_lease_contracts()`
 
 Nó làm gì:
 - Tìm các hợp đồng có `end_date < CURDATE()`
@@ -152,7 +158,7 @@ Kỳ vọng:
 - Nếu có hợp đồng cũ chưa đồng bộ trạng thái thì procedure sẽ chuyển sang `Expired`.
 - Nếu không có, kết quả thường là `expired_contracts = 0`.
 
-### 4.2. `sp_get_current_tenants_by_admin(IN p_admin_id INT)`
+### 4.2. [PROCEDURE] `sp_get_current_tenants_by_admin(IN p_admin_id INT)`
 
 Nó làm gì:
 - Đọc từ `vw_current_tenants`
@@ -188,7 +194,7 @@ FROM admin
 ORDER BY admin_id;
 ```
 
-### 4.3. `sp_get_customer_inventory_value(IN p_customer_id INT)`
+### 4.3. [PROCEDURE] `sp_get_customer_inventory_value(IN p_customer_id INT)`
 
 Nó làm gì:
 - Gọi function `fn_customer_inventory_value`
@@ -223,7 +229,7 @@ FROM customer
 ORDER BY customer_id;
 ```
 
-### 4.4. `sp_get_expiring_batches(IN p_customer_id INT, IN p_days_ahead INT)`
+### 4.4. [PROCEDURE] `sp_get_expiring_batches(IN p_customer_id INT, IN p_days_ahead INT)`
 
 Nó làm gì:
 - Đọc từ `vw_expiring_batches`
@@ -256,7 +262,7 @@ Gợi ý:
 - Dùng `180` ngày để dễ thấy dữ liệu mẫu hơn.
 - Nếu muốn đúng ý nghĩa "sắp hết hạn", dùng `30`.
 
-### 4.5. `sp_get_top_exported_products(IN p_customer_id INT, IN p_year INT, IN p_month INT, IN p_limit INT)`
+### 4.5. [PROCEDURE] `sp_get_top_exported_products(IN p_customer_id INT, IN p_year INT, IN p_month INT, IN p_limit INT)`
 
 Nó làm gì:
 - Đọc từ `vw_monthly_product_exports`
@@ -286,7 +292,7 @@ SET @customer_id = (
 CALL sp_get_top_exported_products(@customer_id, 2026, 4, 5);
 ```
 
-### 4.6. `sp_complete_inbound_receipt(IN p_receipt_id INT)`
+### 4.6. [PROCEDURE] `sp_complete_inbound_receipt(IN p_receipt_id INT)`
 
 Nó làm gì:
 - Kiểm tra phiếu nhập có tồn tại hay không
@@ -365,7 +371,7 @@ WHERE receipt_id = 9802;
 Khi reset:
 - Trigger sẽ tự trừ lại phần tồn đã cộng lúc hoàn tất
 
-### 4.7. `sp_complete_outbound_issue(IN p_issue_id INT)`
+### 4.7. [PROCEDURE] `sp_complete_outbound_issue(IN p_issue_id INT)`
 
 Nó làm gì:
 - Kiểm tra phiếu xuất có tồn tại hay không
@@ -451,30 +457,30 @@ Các trigger trong project chia thành 5 nhóm: validate dữ liệu master, val
 
 | Trigger | Thời điểm | Bảng | Nó làm gì | Mục đích |
 |---|---|---|---|---|
-| `trg_warehouse_bi_validate` | `BEFORE INSERT` | `warehouse` | Trim tên kho, chặn tên rỗng, chặn `area <= 0` | Bảo đảm dữ liệu kho hợp lệ ngay từ lúc thêm mới |
-| `trg_warehouse_bu_validate` | `BEFORE UPDATE` | `warehouse` | Trim tên kho, chặn tên rỗng, chặn `area <= 0` | Không cho cập nhật kho thành dữ liệu vô nghĩa |
-| `trg_lease_contract_bi_validate` | `BEFORE INSERT` | `lease_contract` | Chặn `end_date < start_date`; nếu quá hạn thì tự đổi status sang `Expired` | Bảo đảm logic ngày tháng hợp đồng |
-| `trg_lease_contract_bu_validate` | `BEFORE UPDATE` | `lease_contract` | Kiểm tra ngày hợp đồng; tự đổi `Pending/Active` quá hạn sang `Expired` | Giữ trạng thái hợp đồng luôn nhất quán |
-| `trg_product_bi_validate` | `BEFORE INSERT` | `product` | Trim tên hàng và đơn vị tính; chặn rỗng; chặn giá âm | Bảo vệ dữ liệu hàng hóa |
-| `trg_product_bu_validate` | `BEFORE UPDATE` | `product` | Giống trigger insert nhưng áp dụng cho cập nhật | Không cho dữ liệu sản phẩm bị sai sau này |
-| `trg_inventory_bi_validate` | `BEFORE INSERT` | `inventory` | Trim `batch_no`; chặn batch rỗng; chặn tồn âm | Bảo đảm bản ghi tồn kho tối thiểu hợp lệ |
-| `trg_inventory_bu_validate` | `BEFORE UPDATE` | `inventory` | Trim `batch_no`; chặn batch rỗng; chặn tồn âm | Ngăn mọi thay đổi làm tồn kho thành âm |
+| [TRIGGER] `trg_warehouse_bi_validate` | `BEFORE INSERT` | `warehouse` | Trim tên kho, chặn tên rỗng, chặn `area <= 0` | Bảo đảm dữ liệu kho hợp lệ ngay từ lúc thêm mới |
+| [TRIGGER] `trg_warehouse_bu_validate` | `BEFORE UPDATE` | `warehouse` | Trim tên kho, chặn tên rỗng, chặn `area <= 0` | Không cho cập nhật kho thành dữ liệu vô nghĩa |
+| [TRIGGER] `trg_lease_contract_bi_validate` | `BEFORE INSERT` | `lease_contract` | Chặn `end_date < start_date`; nếu quá hạn thì tự đổi status sang `Expired` | Bảo đảm logic ngày tháng hợp đồng |
+| [TRIGGER] `trg_lease_contract_bu_validate` | `BEFORE UPDATE` | `lease_contract` | Kiểm tra ngày hợp đồng; tự đổi `Pending/Active` quá hạn sang `Expired` | Giữ trạng thái hợp đồng luôn nhất quán |
+| [TRIGGER] `trg_product_bi_validate` | `BEFORE INSERT` | `product` | Trim tên hàng và đơn vị tính; chặn rỗng; chặn giá âm | Bảo vệ dữ liệu hàng hóa |
+| [TRIGGER] `trg_product_bu_validate` | `BEFORE UPDATE` | `product` | Giống trigger insert nhưng áp dụng cho cập nhật | Không cho dữ liệu sản phẩm bị sai sau này |
+| [TRIGGER] `trg_inventory_bi_validate` | `BEFORE INSERT` | `inventory` | Trim `batch_no`; chặn batch rỗng; chặn tồn âm | Bảo đảm bản ghi tồn kho tối thiểu hợp lệ |
+| [TRIGGER] `trg_inventory_bu_validate` | `BEFORE UPDATE` | `inventory` | Trim `batch_no`; chặn batch rỗng; chặn tồn âm | Ngăn mọi thay đổi làm tồn kho thành âm |
 
 ### 5.2. Nhóm trigger validate phiếu nhập
 
 | Trigger | Thời điểm | Bảng | Nó làm gì | Mục đích |
 |---|---|---|---|---|
-| `trg_inbound_detail_bi_validate` | `BEFORE INSERT` | `inbound_receipt_detail` | Trim `batch_no`; chặn batch rỗng; chặn `quantity <= 0`; chặn `import_price < 0` | Bảo đảm dòng nhập kho hợp lệ |
-| `trg_inbound_detail_bu_validate` | `BEFORE UPDATE` | `inbound_receipt_detail` | Kiểm tra lại toàn bộ dữ liệu của dòng detail khi cập nhật | Không cho sửa chi tiết nhập thành dữ liệu sai |
+| [TRIGGER] `trg_inbound_detail_bi_validate` | `BEFORE INSERT` | `inbound_receipt_detail` | Trim `batch_no`; chặn batch rỗng; chặn `quantity <= 0`; chặn `import_price < 0` | Bảo đảm dòng nhập kho hợp lệ |
+| [TRIGGER] `trg_inbound_detail_bu_validate` | `BEFORE UPDATE` | `inbound_receipt_detail` | Kiểm tra lại toàn bộ dữ liệu của dòng detail khi cập nhật | Không cho sửa chi tiết nhập thành dữ liệu sai |
 
 ### 5.3. Nhóm trigger đồng bộ tồn kho khi nhập
 
 | Trigger | Thời điểm | Bảng | Nó làm gì | Mục đích |
 |---|---|---|---|---|
-| `trg_inbound_receipt_au_inventory` | `AFTER UPDATE` | `inbound_receipt` | Khi phiếu đổi sang `Completed` thì cộng tồn theo detail; khi rời trạng thái `Completed` thì trừ ngược lại; chặn rollback nếu làm tồn âm | Đồng bộ tồn kho theo trạng thái phiếu nhập |
-| `trg_inbound_detail_ai_inventory` | `AFTER INSERT` | `inbound_receipt_detail` | Nếu phiếu cha đã `Completed` thì detail mới thêm vào sẽ cộng luôn vào tồn kho | Giữ tồn kho đúng cả khi thêm detail sau khi phiếu đã hoàn tất |
-| `trg_inbound_detail_au_inventory` | `AFTER UPDATE` | `inbound_receipt_detail` | Nếu detail cũ thuộc phiếu `Completed` thì trừ phần cũ; nếu detail mới thuộc phiếu `Completed` thì cộng phần mới; chặn âm kho | Tồn kho luôn khớp với detail hiện tại |
-| `trg_inbound_detail_ad_inventory` | `AFTER DELETE` | `inbound_receipt_detail` | Nếu xóa detail của phiếu đã `Completed` thì trừ lại tồn; chặn thao tác nếu sẽ làm tồn âm | Cho phép sửa chứng từ nhập nhưng vẫn bảo vệ toàn vẹn tồn kho |
+| [TRIGGER] `trg_inbound_receipt_au_inventory` | `AFTER UPDATE` | `inbound_receipt` | Khi phiếu đổi sang `Completed` thì cộng tồn theo detail; khi rời trạng thái `Completed` thì trừ ngược lại; chặn rollback nếu làm tồn âm | Đồng bộ tồn kho theo trạng thái phiếu nhập |
+| [TRIGGER] `trg_inbound_detail_ai_inventory` | `AFTER INSERT` | `inbound_receipt_detail` | Nếu phiếu cha đã `Completed` thì detail mới thêm vào sẽ cộng luôn vào tồn kho | Giữ tồn kho đúng cả khi thêm detail sau khi phiếu đã hoàn tất |
+| [TRIGGER] `trg_inbound_detail_au_inventory` | `AFTER UPDATE` | `inbound_receipt_detail` | Nếu detail cũ thuộc phiếu `Completed` thì trừ phần cũ; nếu detail mới thuộc phiếu `Completed` thì cộng phần mới; chặn âm kho | Tồn kho luôn khớp với detail hiện tại |
+| [TRIGGER] `trg_inbound_detail_ad_inventory` | `AFTER DELETE` | `inbound_receipt_detail` | Nếu xóa detail của phiếu đã `Completed` thì trừ lại tồn; chặn thao tác nếu sẽ làm tồn âm | Cho phép sửa chứng từ nhập nhưng vẫn bảo vệ toàn vẹn tồn kho |
 
 Ý nghĩa trình bày:
 - Nhóm này cho thấy nhập kho không phải chỉ là thêm dòng vào detail.
@@ -484,27 +490,884 @@ Các trigger trong project chia thành 5 nhóm: validate dữ liệu master, val
 
 | Trigger | Thời điểm | Bảng | Nó làm gì | Mục đích |
 |---|---|---|---|---|
-| `trg_outbound_detail_bi_validate` | `BEFORE INSERT` | `outbound_issue_detail` | Trim `batch_no`; chặn batch rỗng; chặn `quantity <= 0`; chặn `selling_price < 0` | Bảo đảm dữ liệu dòng xuất kho hợp lệ |
-| `trg_outbound_detail_bu_validate` | `BEFORE UPDATE` | `outbound_issue_detail` | Kiểm tra lại detail khi sửa | Không cho dòng xuất thành dữ liệu sai |
-| `trg_outbound_issue_bu_check_inventory` | `BEFORE UPDATE` | `outbound_issue` | Trước khi hoàn tất phiếu xuất, gom tổng số lượng cần xuất theo batch và kiểm tra tồn kho có đủ hay không | Chặn hoàn tất phiếu nếu kho không đủ hàng |
-| `trg_outbound_detail_bi_check_inventory` | `BEFORE INSERT` | `outbound_issue_detail` | Nếu phiếu cha đã `Completed`, detail mới thêm phải kiểm tra tồn kho ngay | Không cho thêm dòng xuất vượt tồn sau khi phiếu đã hoàn tất |
-| `trg_outbound_detail_bu_check_inventory` | `BEFORE UPDATE` | `outbound_issue_detail` | Khi sửa detail của phiếu đã `Completed`, tính lại lượng khả dụng sau khi hoàn trả phần cũ rồi mới cho sửa | Bảo vệ các thao tác sửa detail xuất đã hoàn tất |
+| [TRIGGER] `trg_outbound_detail_bi_validate` | `BEFORE INSERT` | `outbound_issue_detail` | Trim `batch_no`; chặn batch rỗng; chặn `quantity <= 0`; chặn `selling_price < 0` | Bảo đảm dữ liệu dòng xuất kho hợp lệ |
+| [TRIGGER] `trg_outbound_detail_bu_validate` | `BEFORE UPDATE` | `outbound_issue_detail` | Kiểm tra lại detail khi sửa | Không cho dòng xuất thành dữ liệu sai |
+| [TRIGGER] `trg_outbound_issue_bu_check_inventory` | `BEFORE UPDATE` | `outbound_issue` | Trước khi hoàn tất phiếu xuất, gom tổng số lượng cần xuất theo batch và kiểm tra tồn kho có đủ hay không | Chặn hoàn tất phiếu nếu kho không đủ hàng |
+| [TRIGGER] `trg_outbound_detail_bi_check_inventory` | `BEFORE INSERT` | `outbound_issue_detail` | Nếu phiếu cha đã `Completed`, detail mới thêm phải kiểm tra tồn kho ngay | Không cho thêm dòng xuất vượt tồn sau khi phiếu đã hoàn tất |
+| [TRIGGER] `trg_outbound_detail_bu_check_inventory` | `BEFORE UPDATE` | `outbound_issue_detail` | Khi sửa detail của phiếu đã `Completed`, tính lại lượng khả dụng sau khi hoàn trả phần cũ rồi mới cho sửa | Bảo vệ các thao tác sửa detail xuất đã hoàn tất |
 
 ### 5.5. Nhóm trigger đồng bộ tồn kho khi xuất
 
 | Trigger | Thời điểm | Bảng | Nó làm gì | Mục đích |
 |---|---|---|---|---|
-| `trg_outbound_issue_au_inventory` | `AFTER UPDATE` | `outbound_issue` | Khi phiếu đổi sang `Completed` thì trừ kho; khi rời trạng thái `Completed` thì cộng trả lại kho | Đồng bộ tồn kho theo trạng thái phiếu xuất |
-| `trg_outbound_detail_ai_inventory` | `AFTER INSERT` | `outbound_issue_detail` | Nếu phiếu cha đã `Completed` thì thêm detail mới sẽ trừ kho ngay | Tồn kho luôn bám sát detail mới phát sinh |
-| `trg_outbound_detail_au_inventory` | `AFTER UPDATE` | `outbound_issue_detail` | Cộng trả phần cũ rồi trừ phần mới nếu liên quan phiếu đã `Completed` | Cho phép sửa detail mà tồn kho vẫn đúng |
-| `trg_outbound_detail_ad_inventory` | `AFTER DELETE` | `outbound_issue_detail` | Nếu xóa detail của phiếu đã `Completed` thì cộng trả kho | Đảm bảo xóa dòng xuất cũng rollback đúng lượng hàng |
+| [TRIGGER] `trg_outbound_issue_au_inventory` | `AFTER UPDATE` | `outbound_issue` | Khi phiếu đổi sang `Completed` thì trừ kho; khi rời trạng thái `Completed` thì cộng trả lại kho | Đồng bộ tồn kho theo trạng thái phiếu xuất |
+| [TRIGGER] `trg_outbound_detail_ai_inventory` | `AFTER INSERT` | `outbound_issue_detail` | Nếu phiếu cha đã `Completed` thì thêm detail mới sẽ trừ kho ngay | Tồn kho luôn bám sát detail mới phát sinh |
+| [TRIGGER] `trg_outbound_detail_au_inventory` | `AFTER UPDATE` | `outbound_issue_detail` | Cộng trả phần cũ rồi trừ phần mới nếu liên quan phiếu đã `Completed` | Cho phép sửa detail mà tồn kho vẫn đúng |
+| [TRIGGER] `trg_outbound_detail_ad_inventory` | `AFTER DELETE` | `outbound_issue_detail` | Nếu xóa detail của phiếu đã `Completed` thì cộng trả kho | Đảm bảo xóa dòng xuất cũng rollback đúng lượng hàng |
 
 Ý nghĩa trình bày:
 - Đây là phần thể hiện rõ nhất "DB tự xử lý nghiệp vụ".
 - Java chỉ cần đổi status phiếu hoặc chỉnh detail.
 - Trigger chịu trách nhiệm đồng bộ số lượng tồn thật trong `inventory`.
 
-## 6. Cách kể chuyện khi thuyết trình
+## 6. Hướng dẫn test từng object
+
+Phần này dùng khi bạn muốn demo trực tiếp trong MySQL Workbench và giải thích cho giảng viên từng object hoạt động ra sao.
+
+### 6.1. Chuẩn bị trước khi test
+
+```sql
+USE warehouse_db;
+```
+
+Nên chuẩn bị như sau:
+- Nếu dữ liệu demo đã bị thay đổi nhiều, chạy lại [sample_data.sql](/d:/Working/IdeaProjects/DBMS-warehouse-rental-management-merge-check/database/sample_data.sql:1).
+- Với các test chỉ để chứng minh trigger validate, nên dùng `START TRANSACTION;` rồi `ROLLBACK;` để không lưu dữ liệu.
+- Với các test cần xem tồn kho tăng giảm, có thể:
+  - dùng `START TRANSACTION;` rồi `ROLLBACK;`, hoặc
+  - chạy thật rồi reset bằng câu `UPDATE` như phần procedure ở trên.
+
+Các ID mẫu tiện dùng:
+- `warehouse_id = 9101`
+- `product_id = 9701`, `9702`
+- `receipt_id = 9801` là phiếu nhập `Completed`
+- `receipt_id = 9802` là phiếu nhập `Draft`
+- `issue_id = 9901` là phiếu xuất `Completed`
+- `issue_id = 9902` là phiếu xuất `Draft`
+
+Nên kiểm tra nhanh trạng thái mẫu trước khi test:
+
+```sql
+SELECT receipt_id, status
+FROM inbound_receipt
+WHERE receipt_id IN (9801, 9802);
+
+SELECT issue_id, status
+FROM outbound_issue
+WHERE issue_id IN (9901, 9902);
+```
+
+Nếu bạn vừa demo procedure xong thì reset lại:
+
+```sql
+UPDATE inbound_receipt
+SET status = 'Draft'
+WHERE receipt_id = 9802;
+
+UPDATE outbound_issue
+SET status = 'Draft'
+WHERE issue_id = 9902;
+```
+
+### 6.2. Test từng view
+
+#### 6.2.1. Test [VIEW] `vw_current_tenants`
+
+```sql
+SELECT *
+FROM vw_current_tenants;
+```
+
+Kỳ vọng:
+- Chỉ thấy hợp đồng `Active`
+- `CURDATE()` phải nằm trong khoảng `start_date` đến `end_date`
+
+Test sâu hơn:
+
+```sql
+SET @admin_id = (
+  SELECT admin_id
+  FROM admin
+  WHERE user_name = 'layout_admin_0427030337'
+  LIMIT 1
+);
+
+SELECT *
+FROM vw_current_tenants
+WHERE admin_id = @admin_id;
+```
+
+#### 6.2.2. Test [VIEW] `vw_inventory_summary`
+
+```sql
+SELECT *
+FROM vw_inventory_summary
+ORDER BY total_inventory_value DESC;
+```
+
+Kỳ vọng:
+- Mỗi dòng là tổng hợp theo `customer + warehouse + product`
+- `total_quantity` là tổng số lượng của tất cả batch cùng sản phẩm trong kho
+- `total_inventory_value = total_quantity * current_price`
+
+#### 6.2.3. Test [VIEW] `vw_expiring_batches`
+
+```sql
+SELECT *
+FROM vw_expiring_batches
+ORDER BY expiry_date, product_name;
+```
+
+Kỳ vọng:
+- Chỉ hiện batch có `expiry_date`
+- Chỉ hiện batch còn tồn `current_quantity > 0`
+- Có cột `days_until_expiry` để biết còn bao nhiêu ngày
+
+#### 6.2.4. Test [VIEW] `vw_monthly_product_exports`
+
+```sql
+SELECT *
+FROM vw_monthly_product_exports
+WHERE export_year = 2026
+  AND export_month = 4
+ORDER BY total_quantity_exported DESC;
+```
+
+Kỳ vọng:
+- Chỉ tính các phiếu xuất `Completed`
+- Có `total_quantity_exported` và `total_revenue` theo tháng
+
+### 6.3. Test từng function
+
+#### 6.3.1. Test [FUNCTION] `fn_inventory_batch_value`
+
+```sql
+SELECT fn_inventory_batch_value(9101, 9701, 'SPK-A-2026') AS fn_value;
+
+SELECT i.quantity * p.current_price AS manual_value
+FROM inventory i
+JOIN product p ON p.product_id = i.product_id
+WHERE i.warehouse_id = 9101
+  AND i.product_id = 9701
+  AND i.batch_no = 'SPK-A-2026';
+```
+
+Kỳ vọng:
+- `fn_value` và `manual_value` phải bằng nhau
+
+#### 6.3.2. Test [FUNCTION] `fn_customer_inventory_value`
+
+```sql
+SET @customer_id = (
+  SELECT customer_id
+  FROM customer
+  WHERE user_name = 'hung'
+  LIMIT 1
+);
+
+SELECT fn_customer_inventory_value(@customer_id) AS fn_value;
+
+SELECT COALESCE(SUM(i.quantity * p.current_price), 0) AS manual_value
+FROM inventory i
+JOIN product p ON p.product_id = i.product_id
+WHERE p.customer_id = @customer_id
+  AND p.is_deleted = FALSE;
+```
+
+Kỳ vọng:
+- `fn_value` và `manual_value` phải bằng nhau
+
+#### 6.3.3. Test [FUNCTION] `fn_available_inventory`
+
+```sql
+SELECT fn_available_inventory(9101, 9702, 'BUTTER-APR26') AS fn_qty;
+
+SELECT COALESCE(quantity, 0) AS manual_qty
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+```
+
+Kỳ vọng:
+- `fn_qty` và `manual_qty` phải bằng nhau
+
+### 6.4. Test từng stored procedure
+
+#### 6.4.1. Test [PROCEDURE] `sp_expire_lease_contracts()`
+
+```sql
+SELECT contract_id, status, start_date, end_date
+FROM lease_contract
+WHERE end_date < CURDATE()
+  AND status IN ('Pending', 'Active');
+
+CALL sp_expire_lease_contracts();
+```
+
+Kỳ vọng:
+- Nếu có hợp đồng quá hạn mà chưa `Expired`, procedure sẽ đổi trạng thái
+- Nếu không có, `expired_contracts = 0`
+
+#### 6.4.2. Test [PROCEDURE] `sp_get_current_tenants_by_admin`
+
+```sql
+SET @admin_id = (
+  SELECT admin_id
+  FROM admin
+  WHERE user_name = 'layout_admin_0427030337'
+  LIMIT 1
+);
+
+CALL sp_get_current_tenants_by_admin(@admin_id);
+```
+
+Kỳ vọng:
+- Kết quả đúng với `SELECT * FROM vw_current_tenants WHERE admin_id = @admin_id`
+
+#### 6.4.3. Test [PROCEDURE] `sp_get_customer_inventory_value`
+
+```sql
+SET @customer_id = (
+  SELECT customer_id
+  FROM customer
+  WHERE user_name = 'hung'
+  LIMIT 1
+);
+
+CALL sp_get_customer_inventory_value(@customer_id);
+```
+
+Kỳ vọng:
+- Trả về đúng tổng giá trị tồn kho của khách hàng đó
+
+#### 6.4.4. Test [PROCEDURE] `sp_get_expiring_batches`
+
+```sql
+SET @customer_id = (
+  SELECT customer_id
+  FROM customer
+  WHERE user_name = 'hung'
+  LIMIT 1
+);
+
+CALL sp_get_expiring_batches(@customer_id, 180);
+```
+
+Kỳ vọng:
+- Chỉ hiện các batch của đúng khách hàng
+- `days_until_expiry` nằm trong khoảng từ `0` đến `180`
+
+#### 6.4.5. Test [PROCEDURE] `sp_get_top_exported_products`
+
+```sql
+SET @customer_id = (
+  SELECT customer_id
+  FROM customer
+  WHERE user_name = 'hung'
+  LIMIT 1
+);
+
+CALL sp_get_top_exported_products(@customer_id, 2026, 4, 5);
+```
+
+Kỳ vọng:
+- Có tối đa `5` dòng
+- Sắp xếp giảm dần theo `total_quantity_exported`
+
+#### 6.4.6. Test [PROCEDURE] `sp_complete_inbound_receipt`
+
+```sql
+SELECT receipt_id, status
+FROM inbound_receipt
+WHERE receipt_id = 9802;
+
+SELECT *
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'SPK-DRAFT-2026';
+
+CALL sp_complete_inbound_receipt(9802);
+
+SELECT receipt_id, status
+FROM inbound_receipt
+WHERE receipt_id = 9802;
+
+SELECT *
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'SPK-DRAFT-2026';
+```
+
+Kỳ vọng:
+- Phiếu nhập đổi từ `Draft` sang `Completed`
+- Batch `SPK-DRAFT-2026` được cộng vào `inventory`
+
+Reset:
+
+```sql
+UPDATE inbound_receipt
+SET status = 'Draft'
+WHERE receipt_id = 9802;
+```
+
+#### 6.4.7. Test [PROCEDURE] `sp_complete_outbound_issue`
+
+```sql
+SELECT issue_id, status
+FROM outbound_issue
+WHERE issue_id = 9902;
+
+SELECT *
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+
+CALL sp_complete_outbound_issue(9902);
+
+SELECT issue_id, status
+FROM outbound_issue
+WHERE issue_id = 9902;
+
+SELECT *
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+```
+
+Kỳ vọng:
+- Phiếu xuất đổi từ `Draft` sang `Completed`
+- `inventory.quantity` của `BUTTER-APR26` bị trừ đúng số lượng xuất
+
+Reset:
+
+```sql
+UPDATE outbound_issue
+SET status = 'Draft'
+WHERE issue_id = 9902;
+```
+
+### 6.5. Test từng trigger
+
+Phần này tập trung test trigger riêng lẻ, không đi qua service Java.
+
+#### 6.5.1. Test [TRIGGER] `trg_warehouse_bi_validate`
+
+```sql
+START TRANSACTION;
+
+INSERT INTO warehouse (
+  warehouse_id, warehouse_name, address, area, rental_price, status, admin_id
+) VALUES (
+  99901, '   ', 'Test address', -10, 1000000, 'Active',
+  (SELECT admin_id FROM admin ORDER BY admin_id LIMIT 1)
+);
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi `Warehouse name is required` hoặc `Warehouse area must be greater than zero`
+
+#### 6.5.2. Test [TRIGGER] `trg_warehouse_bu_validate`
+
+```sql
+START TRANSACTION;
+
+UPDATE warehouse
+SET warehouse_name = '   '
+WHERE warehouse_id = 9101;
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi `Warehouse name is required`
+
+#### 6.5.3. Test [TRIGGER] `trg_lease_contract_bi_validate`
+
+```sql
+START TRANSACTION;
+
+INSERT INTO lease_contract (
+  contract_id, customer_id, warehouse_id, start_date, end_date,
+  rental_price, status, purpose, created_at
+) VALUES (
+  99901,
+  (SELECT customer_id FROM customer ORDER BY customer_id LIMIT 1),
+  9101,
+  '2026-12-31',
+  '2026-01-01',
+  12000000,
+  'Active',
+  'Trigger test',
+  NOW()
+);
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi `Lease contract end date must be on or after start date`
+
+#### 6.5.4. Test [TRIGGER] `trg_lease_contract_bu_validate`
+
+```sql
+START TRANSACTION;
+
+UPDATE lease_contract
+SET end_date = DATE_SUB(start_date, INTERVAL 1 DAY)
+WHERE contract_id = 9201;
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi `Lease contract end date must be on or after start date`
+
+Test thêm cho nhánh auto-expire:
+
+```sql
+START TRANSACTION;
+
+UPDATE lease_contract
+SET status = 'Active',
+    end_date = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+WHERE contract_id = 9201;
+
+SELECT contract_id, status, end_date
+FROM lease_contract
+WHERE contract_id = 9201;
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- `status` tự đổi thành `Expired`
+
+#### 6.5.5. Test [TRIGGER] `trg_product_bi_validate`
+
+```sql
+START TRANSACTION;
+
+INSERT INTO product (
+  product_id, product_name, current_price, unit_of_measure,
+  customer_id, category_id, is_deleted
+) VALUES (
+  99901, '   ', -1, '   ',
+  (SELECT customer_id FROM customer WHERE user_name = 'hung' LIMIT 1),
+  9401,
+  FALSE
+);
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi do tên rỗng, đơn vị tính rỗng, hoặc giá âm
+
+#### 6.5.6. Test [TRIGGER] `trg_product_bu_validate`
+
+```sql
+START TRANSACTION;
+
+UPDATE product
+SET current_price = -1
+WHERE product_id = 9701;
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi `Product current price cannot be negative`
+
+#### 6.5.7. Test [TRIGGER] `trg_inbound_detail_bi_validate`
+
+```sql
+START TRANSACTION;
+
+INSERT INTO inbound_receipt_detail (
+  receipt_id, product_id, batch_no, quantity, import_price, expiry_date
+) VALUES (
+  9802, 9701, '   ', 0, -1, NULL
+);
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi do `batch_no` rỗng, `quantity <= 0` hoặc `import_price < 0`
+
+#### 6.5.8. Test [TRIGGER] `trg_inbound_detail_bu_validate`
+
+```sql
+START TRANSACTION;
+
+UPDATE inbound_receipt_detail
+SET quantity = 0
+WHERE receipt_id = 9802
+  AND product_id = 9701
+  AND batch_no = 'SPK-DRAFT-2026';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi `Inbound quantity must be greater than zero`
+
+#### 6.5.9. Test [TRIGGER] `trg_inbound_receipt_au_inventory`
+
+```sql
+START TRANSACTION;
+
+SELECT receipt_id, status
+FROM inbound_receipt
+WHERE receipt_id = 9802;
+
+SELECT *
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'SPK-DRAFT-2026';
+
+UPDATE inbound_receipt
+SET status = 'Completed'
+WHERE receipt_id = 9802;
+
+SELECT receipt_id, status
+FROM inbound_receipt
+WHERE receipt_id = 9802;
+
+SELECT *
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'SPK-DRAFT-2026';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Sau `UPDATE`, tồn kho tăng lên hoặc xuất hiện mới batch `SPK-DRAFT-2026`
+
+#### 6.5.10. Test [TRIGGER] `trg_inbound_detail_ai_inventory`
+
+```sql
+START TRANSACTION;
+
+SELECT *
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'IN-AI-TEST';
+
+INSERT INTO inbound_receipt_detail (
+  receipt_id, product_id, batch_no, quantity, import_price, expiry_date
+) VALUES (
+  9801, 9701, 'IN-AI-TEST', 5, 300000, NULL
+);
+
+SELECT *
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'IN-AI-TEST';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Vì `receipt_id = 9801` đang `Completed`, insert detail mới sẽ cộng luôn vào `inventory`
+
+#### 6.5.11. Test [TRIGGER] `trg_inbound_detail_au_inventory`
+
+```sql
+START TRANSACTION;
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'SPK-A-2026';
+
+UPDATE inbound_receipt_detail
+SET quantity = quantity + 5
+WHERE receipt_id = 9801
+  AND product_id = 9701
+  AND batch_no = 'SPK-A-2026';
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'SPK-A-2026';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- `inventory.quantity` tăng thêm `5`
+
+#### 6.5.12. Test [TRIGGER] `trg_inbound_detail_ad_inventory`
+
+```sql
+START TRANSACTION;
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+
+DELETE FROM inbound_receipt_detail
+WHERE receipt_id = 9801
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- `inventory.quantity` giảm đúng bằng số lượng của detail bị xóa
+
+#### 6.5.13. Test [TRIGGER] `trg_outbound_detail_bi_validate`
+
+```sql
+START TRANSACTION;
+
+INSERT INTO outbound_issue_detail (
+  issue_id, product_id, batch_no, quantity, selling_price
+) VALUES (
+  9902, 9702, '   ', 0, -1
+);
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi do batch rỗng, số lượng không hợp lệ, hoặc giá bán âm
+
+#### 6.5.14. Test [TRIGGER] `trg_outbound_detail_bu_validate`
+
+```sql
+START TRANSACTION;
+
+UPDATE outbound_issue_detail
+SET selling_price = -1
+WHERE issue_id = 9902
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi `Outbound selling price cannot be negative`
+
+#### 6.5.15. Test [TRIGGER] `trg_outbound_issue_bu_check_inventory`
+
+```sql
+START TRANSACTION;
+
+UPDATE outbound_issue_detail
+SET quantity = 100000
+WHERE issue_id = 9902
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+
+UPDATE outbound_issue
+SET status = 'Completed'
+WHERE issue_id = 9902;
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi `Insufficient inventory to complete outbound issue`
+
+#### 6.5.16. Test [TRIGGER] `trg_outbound_issue_au_inventory`
+
+```sql
+START TRANSACTION;
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+
+UPDATE outbound_issue
+SET status = 'Completed'
+WHERE issue_id = 9902;
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- `inventory.quantity` giảm đúng bằng số lượng của detail thuộc `issue_id = 9902`
+
+#### 6.5.17. Test [TRIGGER] `trg_outbound_detail_bi_check_inventory`
+
+```sql
+START TRANSACTION;
+
+INSERT INTO outbound_issue_detail (
+  issue_id, product_id, batch_no, quantity, selling_price
+) VALUES (
+  9901, 9702, 'BUTTER-APR26', 100000, 150000
+);
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Vì `issue_id = 9901` đã `Completed`, trigger sẽ kiểm tra tồn kho ngay
+- Kết quả phải báo lỗi `Insufficient inventory for outbound detail`
+
+#### 6.5.18. Test [TRIGGER] `trg_outbound_detail_bu_check_inventory`
+
+```sql
+START TRANSACTION;
+
+UPDATE outbound_issue_detail
+SET quantity = 100000
+WHERE issue_id = 9901
+  AND product_id = 9701
+  AND batch_no = 'SPK-A-2026';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi `Insufficient inventory for outbound detail update`
+
+#### 6.5.19. Test [TRIGGER] `trg_outbound_detail_ai_inventory`
+
+```sql
+START TRANSACTION;
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+
+INSERT INTO outbound_issue_detail (
+  issue_id, product_id, batch_no, quantity, selling_price
+) VALUES (
+  9901, 9702, 'BUTTER-APR26', 1, 150000
+);
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9702
+  AND batch_no = 'BUTTER-APR26';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Vì `issue_id = 9901` đã `Completed`, insert detail mới sẽ trừ kho ngay `1` đơn vị
+
+#### 6.5.20. Test [TRIGGER] `trg_outbound_detail_au_inventory`
+
+```sql
+START TRANSACTION;
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'SPK-A-2026';
+
+UPDATE outbound_issue_detail
+SET quantity = quantity - 1
+WHERE issue_id = 9901
+  AND product_id = 9701
+  AND batch_no = 'SPK-A-2026';
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'SPK-A-2026';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Vì detail xuất giảm `1`, tồn kho phải tăng lại `1`
+
+#### 6.5.21. Test [TRIGGER] `trg_outbound_detail_ad_inventory`
+
+```sql
+START TRANSACTION;
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'SPK-A-2026';
+
+DELETE FROM outbound_issue_detail
+WHERE issue_id = 9901
+  AND product_id = 9701
+  AND batch_no = 'SPK-A-2026';
+
+SELECT quantity
+FROM inventory
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'SPK-A-2026';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Xóa detail của phiếu xuất `Completed` sẽ cộng trả số lượng về kho
+
+#### 6.5.22. Test [TRIGGER] `trg_inventory_bi_validate`
+
+```sql
+START TRANSACTION;
+
+INSERT INTO inventory (
+  warehouse_id, product_id, batch_no, quantity, last_updated
+) VALUES (
+  9101, 9701, '   ', -1, NOW()
+);
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi `Inventory batch number is required` hoặc `Inventory quantity cannot be negative`
+
+#### 6.5.23. Test [TRIGGER] `trg_inventory_bu_validate`
+
+```sql
+START TRANSACTION;
+
+UPDATE inventory
+SET quantity = -1
+WHERE warehouse_id = 9101
+  AND product_id = 9701
+  AND batch_no = 'SPK-A-2026';
+
+ROLLBACK;
+```
+
+Kỳ vọng:
+- Báo lỗi `Inventory quantity cannot be negative`
+
+## 7. Cách kể chuyện khi thuyết trình
 
 Có thể trình bày theo logic sau:
 

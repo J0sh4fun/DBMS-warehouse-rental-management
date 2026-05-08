@@ -172,13 +172,14 @@ export default function AdminContracts() {
                 <Input type="date" value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} required />
               </div>
               <div className="space-y-2">
-                <Label>Rental Price</Label>
+                <Label>Rental Price (VNĐ)</Label>
                 <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.rentalPrice}
-                  onChange={(event) => setForm({ ...form, rentalPrice: Number(event.target.value) })}
+                  type="text"
+                  value={form.rentalPrice ? form.rentalPrice.toLocaleString('vi-VN') : ''}
+                  onChange={(event) => {
+                    const rawValue = event.target.value.replace(/\./g, '').replace(/\D/g, '');
+                    setForm({ ...form, rentalPrice: rawValue ? Number(rawValue) : 0 });
+                  }}
                   required
                 />
               </div>

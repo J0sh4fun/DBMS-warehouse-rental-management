@@ -170,11 +170,11 @@ export default function RentalRequestsPage() {
                 <Input id="endDate" type="date" value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="rentalPrice">Rental Price</Label>
+                <Label htmlFor="rentalPrice">Rental Price (VNĐ)</Label>
                 <Input
                   id="rentalPrice"
-                  type="number"
-                  value={selectedWarehouse?.rentalPrice != null ? Number(selectedWarehouse.rentalPrice).toString() : ''}
+                  type="text"
+                  value={selectedWarehouse?.rentalPrice != null ? Number(selectedWarehouse.rentalPrice).toLocaleString('vi-VN') : ''}
                   readOnly
                 />
               </div>
