@@ -2,6 +2,7 @@ package com.example.dbmswarehouserentalmanagement.repository;
 
 import com.example.dbmswarehouserentalmanagement.dto.response.AdminCustomerResponse;
 import com.example.dbmswarehouserentalmanagement.dto.response.ExpiringBatchResponse;
+import com.example.dbmswarehouserentalmanagement.dto.response.InventoryResponse;
 import com.example.dbmswarehouserentalmanagement.dto.response.InventorySummaryResponse;
 import com.example.dbmswarehouserentalmanagement.dto.response.TopProductResponse;
 import lombok.RequiredArgsConstructor;
@@ -64,6 +65,53 @@ public class DbmsJdbcRepository {
                 customerId
         );
         return totalValue == null ? BigDecimal.ZERO : totalValue;
+    }
+
+    public List<InventoryResponse> findInventory(
+            Integer customerId,
+            Integer warehouseId,
+            Integer productId,
+            String batchNo
+    ) {
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("customerId", customerId)
+                .addValue("warehouseId", warehouseId)
+                .addValue("productId", productId)
+                .addValue("batchNo", batchNo);
+
+        return namedParameterJdbcTemplate.query("""
+                        select
+                          i.warehouse_id as WarehouseId,
+                          w.warehouse_name as WarehouseName,
+                          i.product_id as ProductId,
+                          p.product_name as ProductName,
+                          p.unit_of_measure as UnitOfMeasure,
+                          i.batch_no as BatchNo,
+                          i.quantity as Quantity,
+                          coalesce(fn_inventory_batch_value(i.warehouse_id, i.product_id, i.batch_no), 0) as BatchValue,
+                          i.last_updated as LastUpdated
+                        from inventory i
+                        join product p on p.product_id = i.product_id
+                        join warehouse w on w.warehouse_id = i.warehouse_id
+                        where p.customer_id = :customerId
+                          and p.is_deleted = false
+                          and (:warehouseId is null or i.warehouse_id = :warehouseId)
+                          and (:productId is null or i.product_id = :productId)
+                          and (:batchNo is null or i.batch_no = :batchNo)
+                        order by p.product_name asc, i.batch_no asc
+                        """,
+                parameters,
+                (resultSet, rowNum) -> new InventoryResponse(
+                        resultSet.getInt("WarehouseId"),
+                        resultSet.getString("WarehouseName"),
+                        resultSet.getInt("ProductId"),
+                        resultSet.getString("ProductName"),
+                        resultSet.getString("UnitOfMeasure"),
+                        resultSet.getString("BatchNo"),
+                        resultSet.getInt("Quantity"),
+                        resultSet.getBigDecimal("BatchValue"),
+                        toLocalDateTime(resultSet, "LastUpdated")
+                ));
     }
 
     public List<ExpiringBatchResponse> findExpiringBatches(Integer customerId, int daysAhead) {
@@ -219,7 +267,11 @@ public class DbmsJdbcRepository {
     }
 
     private LocalDateTime toLocalDateTime(ResultSet resultSet) throws SQLException {
-        return resultSet.getTimestamp("CreatedAt").toLocalDateTime();
+        return toLocalDateTime(resultSet, "CreatedAt");
+    }
+
+    private LocalDateTime toLocalDateTime(ResultSet resultSet, String columnName) throws SQLException {
+        return resultSet.getTimestamp(columnName).toLocalDateTime();
     }
 
     @FunctionalInterface

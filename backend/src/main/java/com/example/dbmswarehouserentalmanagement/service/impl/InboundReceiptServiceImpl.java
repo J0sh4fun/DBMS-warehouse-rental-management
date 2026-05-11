@@ -54,6 +54,9 @@ public class InboundReceiptServiceImpl implements InboundReceiptService {
         if (status == ReceiptStatus.Cancelled) {
             throw new IllegalArgumentException("Cannot create an inbound receipt directly as Cancelled");
         }
+        if (status == ReceiptStatus.Completed) {
+            throw new IllegalArgumentException("Create inbound receipts as Draft and use the complete endpoint");
+        }
         validateActiveWarehouseLease(customerId, request.warehouseId());
 
         Supplier supplier = getOwnedSupplier(customerId, request.supplierId());
@@ -63,7 +66,7 @@ public class InboundReceiptServiceImpl implements InboundReceiptService {
                 .warehouse(warehouse)
                 .supplier(supplier)
                 .receiptDate(request.receiptDate() == null ? LocalDateTime.now() : request.receiptDate())
-                .status(status)
+                .status(ReceiptStatus.Draft)
                 .createdAt(LocalDateTime.now())
                 .build();
         InboundReceipt savedReceipt = inboundReceiptRepository.saveAndFlush(receipt);

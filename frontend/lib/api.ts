@@ -251,6 +251,7 @@ export interface InventoryResponse {
   unitOfMeasure: string;
   batchNo: string;
   quantity: number;
+  batchValue: number;
   lastUpdated: string;
 }
 

@@ -6,7 +6,7 @@ Phạm vi:
 - `4` view
 - `3` function
 - `7` stored procedure
-- `23` trigger
+- `15` trigger
 
 Quy ước ghi tên object trong tài liệu này:
 - `[VIEW]` là view
@@ -463,8 +463,6 @@ Các trigger trong project chia thành 5 nhóm: validate dữ liệu master, val
 | [TRIGGER] `trg_lease_contract_bu_validate` | `BEFORE UPDATE` | `lease_contract` | Kiểm tra ngày hợp đồng; tự đổi `Pending/Active` quá hạn sang `Expired` | Giữ trạng thái hợp đồng luôn nhất quán |
 | [TRIGGER] `trg_product_bi_validate` | `BEFORE INSERT` | `product` | Trim tên hàng và đơn vị tính; chặn rỗng; chặn giá âm | Bảo vệ dữ liệu hàng hóa |
 | [TRIGGER] `trg_product_bu_validate` | `BEFORE UPDATE` | `product` | Giống trigger insert nhưng áp dụng cho cập nhật | Không cho dữ liệu sản phẩm bị sai sau này |
-| [TRIGGER] `trg_inventory_bi_validate` | `BEFORE INSERT` | `inventory` | Trim `batch_no`; chặn batch rỗng; chặn tồn âm | Bảo đảm bản ghi tồn kho tối thiểu hợp lệ |
-| [TRIGGER] `trg_inventory_bu_validate` | `BEFORE UPDATE` | `inventory` | Trim `batch_no`; chặn batch rỗng; chặn tồn âm | Ngăn mọi thay đổi làm tồn kho thành âm |
 
 ### 5.2. Nhóm trigger validate phiếu nhập
 
@@ -478,9 +476,7 @@ Các trigger trong project chia thành 5 nhóm: validate dữ liệu master, val
 | Trigger | Thời điểm | Bảng | Nó làm gì | Mục đích |
 |---|---|---|---|---|
 | [TRIGGER] `trg_inbound_receipt_au_inventory` | `AFTER UPDATE` | `inbound_receipt` | Khi phiếu đổi sang `Completed` thì cộng tồn theo detail; khi rời trạng thái `Completed` thì trừ ngược lại; chặn rollback nếu làm tồn âm | Đồng bộ tồn kho theo trạng thái phiếu nhập |
-| [TRIGGER] `trg_inbound_detail_ai_inventory` | `AFTER INSERT` | `inbound_receipt_detail` | Nếu phiếu cha đã `Completed` thì detail mới thêm vào sẽ cộng luôn vào tồn kho | Giữ tồn kho đúng cả khi thêm detail sau khi phiếu đã hoàn tất |
 | [TRIGGER] `trg_inbound_detail_au_inventory` | `AFTER UPDATE` | `inbound_receipt_detail` | Nếu detail cũ thuộc phiếu `Completed` thì trừ phần cũ; nếu detail mới thuộc phiếu `Completed` thì cộng phần mới; chặn âm kho | Tồn kho luôn khớp với detail hiện tại |
-| [TRIGGER] `trg_inbound_detail_ad_inventory` | `AFTER DELETE` | `inbound_receipt_detail` | Nếu xóa detail của phiếu đã `Completed` thì trừ lại tồn; chặn thao tác nếu sẽ làm tồn âm | Cho phép sửa chứng từ nhập nhưng vẫn bảo vệ toàn vẹn tồn kho |
 
 Ý nghĩa trình bày:
 - Nhóm này cho thấy nhập kho không phải chỉ là thêm dòng vào detail.
@@ -494,16 +490,12 @@ Các trigger trong project chia thành 5 nhóm: validate dữ liệu master, val
 | [TRIGGER] `trg_outbound_detail_bu_validate` | `BEFORE UPDATE` | `outbound_issue_detail` | Kiểm tra lại detail khi sửa | Không cho dòng xuất thành dữ liệu sai |
 | [TRIGGER] `trg_outbound_issue_bu_check_inventory` | `BEFORE UPDATE` | `outbound_issue` | Trước khi hoàn tất phiếu xuất, gom tổng số lượng cần xuất theo batch và kiểm tra tồn kho có đủ hay không | Chặn hoàn tất phiếu nếu kho không đủ hàng |
 | [TRIGGER] `trg_outbound_detail_bi_check_inventory` | `BEFORE INSERT` | `outbound_issue_detail` | Nếu phiếu cha đã `Completed`, detail mới thêm phải kiểm tra tồn kho ngay | Không cho thêm dòng xuất vượt tồn sau khi phiếu đã hoàn tất |
-| [TRIGGER] `trg_outbound_detail_bu_check_inventory` | `BEFORE UPDATE` | `outbound_issue_detail` | Khi sửa detail của phiếu đã `Completed`, tính lại lượng khả dụng sau khi hoàn trả phần cũ rồi mới cho sửa | Bảo vệ các thao tác sửa detail xuất đã hoàn tất |
 
 ### 5.5. Nhóm trigger đồng bộ tồn kho khi xuất
 
 | Trigger | Thời điểm | Bảng | Nó làm gì | Mục đích |
 |---|---|---|---|---|
 | [TRIGGER] `trg_outbound_issue_au_inventory` | `AFTER UPDATE` | `outbound_issue` | Khi phiếu đổi sang `Completed` thì trừ kho; khi rời trạng thái `Completed` thì cộng trả lại kho | Đồng bộ tồn kho theo trạng thái phiếu xuất |
-| [TRIGGER] `trg_outbound_detail_ai_inventory` | `AFTER INSERT` | `outbound_issue_detail` | Nếu phiếu cha đã `Completed` thì thêm detail mới sẽ trừ kho ngay | Tồn kho luôn bám sát detail mới phát sinh |
-| [TRIGGER] `trg_outbound_detail_au_inventory` | `AFTER UPDATE` | `outbound_issue_detail` | Cộng trả phần cũ rồi trừ phần mới nếu liên quan phiếu đã `Completed` | Cho phép sửa detail mà tồn kho vẫn đúng |
-| [TRIGGER] `trg_outbound_detail_ad_inventory` | `AFTER DELETE` | `outbound_issue_detail` | Nếu xóa detail của phiếu đã `Completed` thì cộng trả kho | Đảm bảo xóa dòng xuất cũng rollback đúng lượng hàng |
 
 Ý nghĩa trình bày:
 - Đây là phần thể hiện rõ nhất "DB tự xử lý nghiệp vụ".
@@ -1044,36 +1036,7 @@ ROLLBACK;
 Kỳ vọng:
 - Sau `UPDATE`, tồn kho tăng lên hoặc xuất hiện mới batch `SPK-DRAFT-2026`
 
-#### 6.5.10. Test [TRIGGER] `trg_inbound_detail_ai_inventory`
-
-```sql
-START TRANSACTION;
-
-SELECT *
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9701
-  AND batch_no = 'IN-AI-TEST';
-
-INSERT INTO inbound_receipt_detail (
-  receipt_id, product_id, batch_no, quantity, import_price, expiry_date
-) VALUES (
-  9801, 9701, 'IN-AI-TEST', 5, 300000, NULL
-);
-
-SELECT *
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9701
-  AND batch_no = 'IN-AI-TEST';
-
-ROLLBACK;
-```
-
-Kỳ vọng:
-- Vì `receipt_id = 9801` đang `Completed`, insert detail mới sẽ cộng luôn vào `inventory`
-
-#### 6.5.11. Test [TRIGGER] `trg_inbound_detail_au_inventory`
+#### 6.5.10. Test [TRIGGER] `trg_inbound_detail_au_inventory`
 
 ```sql
 START TRANSACTION;
@@ -1102,35 +1065,7 @@ ROLLBACK;
 Kỳ vọng:
 - `inventory.quantity` tăng thêm `5`
 
-#### 6.5.12. Test [TRIGGER] `trg_inbound_detail_ad_inventory`
-
-```sql
-START TRANSACTION;
-
-SELECT quantity
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9702
-  AND batch_no = 'BUTTER-APR26';
-
-DELETE FROM inbound_receipt_detail
-WHERE receipt_id = 9801
-  AND product_id = 9702
-  AND batch_no = 'BUTTER-APR26';
-
-SELECT quantity
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9702
-  AND batch_no = 'BUTTER-APR26';
-
-ROLLBACK;
-```
-
-Kỳ vọng:
-- `inventory.quantity` giảm đúng bằng số lượng của detail bị xóa
-
-#### 6.5.13. Test [TRIGGER] `trg_outbound_detail_bi_validate`
+#### 6.5.11. Test [TRIGGER] `trg_outbound_detail_bi_validate`
 
 ```sql
 START TRANSACTION;
@@ -1147,7 +1082,7 @@ ROLLBACK;
 Kỳ vọng:
 - Báo lỗi do batch rỗng, số lượng không hợp lệ, hoặc giá bán âm
 
-#### 6.5.14. Test [TRIGGER] `trg_outbound_detail_bu_validate`
+#### 6.5.12. Test [TRIGGER] `trg_outbound_detail_bu_validate`
 
 ```sql
 START TRANSACTION;
@@ -1164,7 +1099,7 @@ ROLLBACK;
 Kỳ vọng:
 - Báo lỗi `Outbound selling price cannot be negative`
 
-#### 6.5.15. Test [TRIGGER] `trg_outbound_issue_bu_check_inventory`
+#### 6.5.13. Test [TRIGGER] `trg_outbound_issue_bu_check_inventory`
 
 ```sql
 START TRANSACTION;
@@ -1185,7 +1120,7 @@ ROLLBACK;
 Kỳ vọng:
 - Báo lỗi `Insufficient inventory to complete outbound issue`
 
-#### 6.5.16. Test [TRIGGER] `trg_outbound_issue_au_inventory`
+#### 6.5.14. Test [TRIGGER] `trg_outbound_issue_au_inventory`
 
 ```sql
 START TRANSACTION;
@@ -1212,7 +1147,7 @@ ROLLBACK;
 Kỳ vọng:
 - `inventory.quantity` giảm đúng bằng số lượng của detail thuộc `issue_id = 9902`
 
-#### 6.5.17. Test [TRIGGER] `trg_outbound_detail_bi_check_inventory`
+#### 6.5.15. Test [TRIGGER] `trg_outbound_detail_bi_check_inventory`
 
 ```sql
 START TRANSACTION;
@@ -1229,143 +1164,6 @@ ROLLBACK;
 Kỳ vọng:
 - Vì `issue_id = 9901` đã `Completed`, trigger sẽ kiểm tra tồn kho ngay
 - Kết quả phải báo lỗi `Insufficient inventory for outbound detail`
-
-#### 6.5.18. Test [TRIGGER] `trg_outbound_detail_bu_check_inventory`
-
-```sql
-START TRANSACTION;
-
-UPDATE outbound_issue_detail
-SET quantity = 100000
-WHERE issue_id = 9901
-  AND product_id = 9701
-  AND batch_no = 'SPK-A-2026';
-
-ROLLBACK;
-```
-
-Kỳ vọng:
-- Báo lỗi `Insufficient inventory for outbound detail update`
-
-#### 6.5.19. Test [TRIGGER] `trg_outbound_detail_ai_inventory`
-
-```sql
-START TRANSACTION;
-
-SELECT quantity
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9702
-  AND batch_no = 'BUTTER-APR26';
-
-INSERT INTO outbound_issue_detail (
-  issue_id, product_id, batch_no, quantity, selling_price
-) VALUES (
-  9901, 9702, 'BUTTER-APR26', 1, 150000
-);
-
-SELECT quantity
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9702
-  AND batch_no = 'BUTTER-APR26';
-
-ROLLBACK;
-```
-
-Kỳ vọng:
-- Vì `issue_id = 9901` đã `Completed`, insert detail mới sẽ trừ kho ngay `1` đơn vị
-
-#### 6.5.20. Test [TRIGGER] `trg_outbound_detail_au_inventory`
-
-```sql
-START TRANSACTION;
-
-SELECT quantity
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9701
-  AND batch_no = 'SPK-A-2026';
-
-UPDATE outbound_issue_detail
-SET quantity = quantity - 1
-WHERE issue_id = 9901
-  AND product_id = 9701
-  AND batch_no = 'SPK-A-2026';
-
-SELECT quantity
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9701
-  AND batch_no = 'SPK-A-2026';
-
-ROLLBACK;
-```
-
-Kỳ vọng:
-- Vì detail xuất giảm `1`, tồn kho phải tăng lại `1`
-
-#### 6.5.21. Test [TRIGGER] `trg_outbound_detail_ad_inventory`
-
-```sql
-START TRANSACTION;
-
-SELECT quantity
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9701
-  AND batch_no = 'SPK-A-2026';
-
-DELETE FROM outbound_issue_detail
-WHERE issue_id = 9901
-  AND product_id = 9701
-  AND batch_no = 'SPK-A-2026';
-
-SELECT quantity
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9701
-  AND batch_no = 'SPK-A-2026';
-
-ROLLBACK;
-```
-
-Kỳ vọng:
-- Xóa detail của phiếu xuất `Completed` sẽ cộng trả số lượng về kho
-
-#### 6.5.22. Test [TRIGGER] `trg_inventory_bi_validate`
-
-```sql
-START TRANSACTION;
-
-INSERT INTO inventory (
-  warehouse_id, product_id, batch_no, quantity, last_updated
-) VALUES (
-  9101, 9701, '   ', -1, NOW()
-);
-
-ROLLBACK;
-```
-
-Kỳ vọng:
-- Báo lỗi `Inventory batch number is required` hoặc `Inventory quantity cannot be negative`
-
-#### 6.5.23. Test [TRIGGER] `trg_inventory_bu_validate`
-
-```sql
-START TRANSACTION;
-
-UPDATE inventory
-SET quantity = -1
-WHERE warehouse_id = 9101
-  AND product_id = 9701
-  AND batch_no = 'SPK-A-2026';
-
-ROLLBACK;
-```
-
-Kỳ vọng:
-- Báo lỗi `Inventory quantity cannot be negative`
 
 ## 7. Cách kể chuyện khi thuyết trình
 

@@ -54,6 +54,9 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
         if (status == IssueStatus.Cancelled) {
             throw new IllegalArgumentException("Cannot create an outbound issue directly as Cancelled");
         }
+        if (status == IssueStatus.Completed) {
+            throw new IllegalArgumentException("Create outbound issues as Draft and use the complete endpoint");
+        }
         validateActiveWarehouseLease(customerId, request.warehouseId());
 
         Buyer buyer = getOwnedBuyer(customerId, request.buyerId());
@@ -63,7 +66,7 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
                 .warehouse(warehouse)
                 .buyer(buyer)
                 .issueDate(request.issueDate() == null ? LocalDateTime.now() : request.issueDate())
-                .status(status)
+                .status(IssueStatus.Draft)
                 .createdAt(LocalDateTime.now())
                 .build();
         OutboundIssue savedIssue = outboundIssueRepository.saveAndFlush(issue);

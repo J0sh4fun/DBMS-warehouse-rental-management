@@ -63,6 +63,10 @@ function toDateTime(date: string) {
   return date ? `${date}T00:00:00` : undefined;
 }
 
+function inventoryKey(warehouseId: number, productId: number, batchNo: string) {
+  return `${warehouseId}-${productId}-${batchNo}`;
+}
+
 export default function Inventory() {
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
@@ -120,6 +124,10 @@ export default function Inventory() {
     receipts.forEach((receipt) => map.set(receipt.warehouseId, receipt.warehouseName));
     return Array.from(map, ([warehouseId, warehouseName]) => ({ warehouseId, warehouseName }));
   }, [contracts, inventory, receipts]);
+  const batchValueByInventoryKey = useMemo(
+    () => new Map(inventory.map((item) => [inventoryKey(item.warehouseId, item.productId, item.batchNo), item.batchValue])),
+    [inventory]
+  );
 
   const filteredInventory = inventory.filter(
     (item) =>
@@ -307,24 +315,26 @@ export default function Inventory() {
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Warehouse</TableHead>
-                          <TableHead>Product</TableHead>
-                          <TableHead>Batch</TableHead>
-                          <TableHead className="text-right">Quantity</TableHead>
-                          <TableHead>Unit</TableHead>
-                          <TableHead>Last Updated</TableHead>
-                        </TableRow>
-                      </TableHeader>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Warehouse</TableHead>
+                            <TableHead>Product</TableHead>
+                            <TableHead>Batch</TableHead>
+                            <TableHead className="text-right">Quantity</TableHead>
+                            <TableHead>Unit</TableHead>
+                            <TableHead className="text-right">Batch Value</TableHead>
+                            <TableHead>Last Updated</TableHead>
+                          </TableRow>
+                        </TableHeader>
                       <TableBody>
                         {filteredInventory.map((item) => (
-                          <TableRow key={`${item.warehouseId}-${item.productId}-${item.batchNo}`}>
+                          <TableRow key={inventoryKey(item.warehouseId, item.productId, item.batchNo)}>
                             <TableCell>{item.warehouseName} #{item.warehouseId}</TableCell>
                             <TableCell>{item.productName}</TableCell>
                             <TableCell className="font-medium">{item.batchNo}</TableCell>
                             <TableCell className="text-right">{formatNumber(item.quantity)}</TableCell>
                             <TableCell>{item.unitOfMeasure}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.batchValue)}</TableCell>
                             <TableCell>{formatDate(item.lastUpdated)}</TableCell>
                           </TableRow>
                         ))}
@@ -440,6 +450,7 @@ export default function Inventory() {
                             <TableHead>Warehouse</TableHead>
                             <TableHead>Supplier</TableHead>
                             <TableHead>Details</TableHead>
+                            <TableHead>Batch Value</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                           </TableRow>
@@ -454,6 +465,13 @@ export default function Inventory() {
                                 {receipt.details.map((detail) => (
                                   <div key={`${receipt.receiptId}-${detail.productId}-${detail.batchNo}`} className="text-sm">
                                     {detail.productName || productById.get(detail.productId)?.productName || detail.productId} / {detail.batchNo}: {formatNumber(detail.quantity)}
+                                  </div>
+                                ))}
+                              </TableCell>
+                              <TableCell>
+                                {receipt.details.map((detail) => (
+                                  <div key={`${receipt.receiptId}-${detail.productId}-${detail.batchNo}-value`} className="text-sm">
+                                    {formatCurrency(batchValueByInventoryKey.get(inventoryKey(receipt.warehouseId, detail.productId, detail.batchNo)) ?? 0)}
                                   </div>
                                 ))}
                               </TableCell>
