@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar, Edit2, Plus, Trash2, X } from 'lucide-react';
-import { adminApi, formatError, LeaseContractRequest, LeaseContractResponse, WarehouseResponse } from '@/lib/api';
+import { adminApi, AdminCustomerResponse, formatError, LeaseContractRequest, LeaseContractResponse, WarehouseResponse } from '@/lib/api';
 
 const defaultForm: LeaseContractRequest = {
   customerId: 0,
@@ -27,7 +27,10 @@ function daysRemaining(endDate: string) {
 export default function AdminContracts() {
   const [contracts, setContracts] = useState<LeaseContractResponse[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseResponse[]>([]);
+  const [customers, setCustomers] = useState<AdminCustomerResponse[]>([]);
   const [form, setForm] = useState<LeaseContractRequest>(defaultForm);
+  const [customerQuery, setCustomerQuery] = useState('');
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -39,9 +42,10 @@ export default function AdminContracts() {
     setLoading(true);
     setError('');
     try {
-      const [contractData, warehouseData] = await Promise.all([adminApi.contracts(), adminApi.warehouses()]);
+      const [contractData, warehouseData, customerData] = await Promise.all([adminApi.contracts(), adminApi.warehouses(), adminApi.customers()]);
       setContracts(contractData);
       setWarehouses(warehouseData);
+      setCustomers(customerData.sort((left, right) => left.customerId - right.customerId));
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -67,6 +71,8 @@ export default function AdminContracts() {
 
   const resetForm = () => {
     setForm(defaultForm);
+    setCustomerQuery('');
+    setCustomerDropdownOpen(false);
     setEditingId(null);
   };
 
@@ -81,10 +87,47 @@ export default function AdminContracts() {
       status: contract.status,
       purpose: contract.purpose || '',
     });
+    setCustomerQuery(String(contract.customerId));
+    setCustomerDropdownOpen(false);
+  };
+
+  const filteredCustomers = useMemo(() => {
+    const query = customerQuery.trim();
+    if (!query) return customers.slice(0, 12);
+
+    return customers.filter((customer) => String(customer.customerId).startsWith(query)).slice(0, 12);
+  }, [customerQuery, customers]);
+
+  const selectedCustomer = useMemo(
+    () => customers.find((customer) => customer.customerId === form.customerId) ?? null,
+    [customers, form.customerId]
+  );
+
+  const handleCustomerInputChange = (value: string) => {
+    const nextValue = value.replace(/\D/g, '');
+    setCustomerQuery(nextValue);
+    setCustomerDropdownOpen(true);
+    setForm((current) => ({
+      ...current,
+      customerId: nextValue ? Number(nextValue) : 0,
+    }));
+  };
+
+  const handleCustomerSelect = (customer: AdminCustomerResponse) => {
+    setCustomerQuery(String(customer.customerId));
+    setCustomerDropdownOpen(false);
+    setForm((current) => ({
+      ...current,
+      customerId: customer.customerId,
+    }));
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!selectedCustomer) {
+      setError('Please choose a valid Customer ID from the suggestion list.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -137,15 +180,45 @@ export default function AdminContracts() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-6">
-              <div className="space-y-2">
+              <div className="relative space-y-2">
                 <Label>Customer ID</Label>
                 <Input
-                  type="number"
-                  min="1"
-                  value={form.customerId || ''}
-                  onChange={(event) => setForm({ ...form, customerId: Number(event.target.value) })}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Type customer ID"
+                  value={customerQuery}
+                  onFocus={() => setCustomerDropdownOpen(true)}
+                  onBlur={() => {
+                    window.setTimeout(() => setCustomerDropdownOpen(false), 120);
+                  }}
+                  onChange={(event) => handleCustomerInputChange(event.target.value)}
                   required
                 />
+                {customerDropdownOpen && (
+                  <div className="absolute top-full z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-popover shadow-md">
+                    {filteredCustomers.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">No matching customer IDs.</div>
+                    ) : (
+                      filteredCustomers.map((customer) => (
+                        <button
+                          key={customer.customerId}
+                          type="button"
+                          className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => handleCustomerSelect(customer)}
+                        >
+                          <span className="font-medium">{customer.customerId}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {customer.customerName} · {customer.email}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                <p className="min-h-4 text-xs text-muted-foreground">
+                  {selectedCustomer ? `${selectedCustomer.customerName} · ${selectedCustomer.email}` : 'Type an ID to see matching customers.'}
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Warehouse</Label>
