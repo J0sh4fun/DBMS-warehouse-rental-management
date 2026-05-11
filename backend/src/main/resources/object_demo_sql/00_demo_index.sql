@@ -1,0 +1,24 @@
+-- QUICK DEMO INDEX FOR DBMS OBJECTS
+-- Location: backend/src/main/resources/object_demo_sql
+--
+-- How to use:
+-- 1. USE warehouse_db;
+-- 2. If demo data has changed too much, reload sample_data.sql first.
+-- 3. Run one file at a time in MySQL Workbench.
+--
+-- Notes:
+-- - Files under views/ and functions/ are read-only.
+-- - Some files under procedures/ and triggers/ use START TRANSACTION ... ROLLBACK
+--   so you can demo safely without leaving data changed.
+-- - If a file says "expected error", seeing that error message means the object works.
+--
+-- Suggested order for a smooth live demo:
+-- 1. views/01_vw_current_tenants_demo.sql
+-- 2. functions/02_fn_customer_inventory_value_demo.sql
+-- 3. procedures/02_sp_get_current_tenants_by_admin_demo.sql
+-- 4. procedures/06_sp_complete_inbound_receipt_demo.sql
+-- 5. procedures/07_sp_complete_outbound_issue_demo.sql
+--
+-- Current sample accounts:
+-- - admin1@gmail.com / 12345678
+-- - customer1@gmail.com / 12345678

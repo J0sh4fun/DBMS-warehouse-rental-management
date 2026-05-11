@@ -6,7 +6,7 @@ Phạm vi:
 - `4` view
 - `3` function
 - `7` stored procedure
-- `15` trigger
+- `13` trigger
 
 Quy ước ghi tên object trong tài liệu này:
 - `[VIEW]` là view
@@ -16,8 +16,12 @@ Quy ước ghi tên object trong tài liệu này:
 
 Lưu ý khi demo:
 - Database runtime của project là `warehouse_db`.
+- Tài khoản mẫu hiện dễ dùng nhất để demo là:
+  - `admin1@gmail.com / 12345678`
+  - `customer1@gmail.com / 12345678`
 - Nếu đã import [sample_data.sql](/d:/Working/IdeaProjects/DBMS-warehouse-rental-management-merge-check/database/sample_data.sql:1), có thể dùng trực tiếp các ID mẫu như `9101`, `9701`, `9702`, `9802`, `9902`.
 - Với các procedure hoàn tất phiếu nhập/xuất, demo sẽ làm thay đổi dữ liệu thật trong DB demo.
+- Với `sp_expire_lease_contracts()`, bộ sample hiện tại thường trả `0` vì dữ liệu quá hạn đã được đồng bộ sang `Expired` sẵn.
 
 ## 1. Tổng quan vai trò của DBMS object
 
@@ -80,7 +84,7 @@ USE warehouse_db;
 SET @customer_id = (
   SELECT customer_id
   FROM customer
-  WHERE user_name = 'hung'
+  WHERE user_name = 'customer1@gmail.com'
   LIMIT 1
 );
 
@@ -94,6 +98,11 @@ SELECT fn_available_inventory(9101, 9702, 'BUTTER-APR26') AS available_qty;
 ## 4. Stored Procedures
 
 Phần này là quan trọng nhất khi demo vì giảng viên sẽ nhìn thấy rõ DB xử lý nghiệp vụ bằng `CALL`.
+
+Gợi ý demo procedure theo thứ tự an toàn:
+- Muốn ra dữ liệu ngay, ít rủi ro: `sp_get_current_tenants_by_admin`, `sp_get_customer_inventory_value`, `sp_get_expiring_batches`, `sp_get_top_exported_products`
+- Muốn thấy dữ liệu thay đổi rõ ràng trước/sau: `sp_complete_inbound_receipt`, `sp_complete_outbound_issue`
+- `sp_expire_lease_contracts()` nên demo theo hướng giải thích kiến trúc, vì trên bộ sample hiện tại nó thường trả `0` và đó là kết quả đúng
 
 ### Query hỗ trợ tìm ID demo
 
@@ -140,23 +149,39 @@ Mục đích nghiệp vụ:
 Lưu ý:
 - Trong project này, trigger ở `lease_contract` cũng đã tự động chuyển sang `Expired` khi insert/update gặp ngày hết hạn.
 - Vì vậy trên một DB "sạch", procedure này có thể trả về `0`. Điều đó là bình thường và vẫn đúng thiết kế.
+- Với bộ sample hiện tại:
+  - `contract_id = 9201` đang `Active` nhưng `end_date = 2026-12-31`, nên chưa hết hạn
+  - `contract_id = 9202` đã quá hạn nhưng `status` đã là `Expired` sẵn
+- Cách nói ngắn gọn với giảng viên: procedure này là "batch safety net" để dọn dữ liệu cũ chưa đồng bộ; còn trạng thái chuẩn hằng ngày đã được trigger giữ sẵn
 
 Query demo:
 
 ```sql
 USE warehouse_db;
 
-SELECT contract_id, customer_id, warehouse_id, status, start_date, end_date
+SELECT
+  contract_id,
+  customer_id,
+  warehouse_id,
+  status,
+  start_date,
+  end_date,
+  CASE
+    WHEN end_date < CURDATE()
+     AND status IN ('Pending', 'Active')
+    THEN 'will be updated by procedure'
+    ELSE 'not affected'
+  END AS procedure_effect
 FROM lease_contract
-WHERE end_date < CURDATE()
-  AND status IN ('Pending', 'Active');
+ORDER BY contract_id;
 
 CALL sp_expire_lease_contracts();
 ```
 
 Kỳ vọng:
-- Nếu có hợp đồng cũ chưa đồng bộ trạng thái thì procedure sẽ chuyển sang `Expired`.
-- Nếu không có, kết quả thường là `expired_contracts = 0`.
+- Với bộ sample hiện tại, kết quả thường là `expired_contracts = 0`.
+- Đây không phải lỗi; nó chứng minh rằng trigger đã giữ trạng thái hợp đồng nhất quán từ trước.
+- Nếu muốn demo một procedure có thay đổi dữ liệu nhìn thấy ngay, chuyển sang `sp_complete_inbound_receipt()` hoặc `sp_complete_outbound_issue()`.
 
 ### 4.2. [PROCEDURE] `sp_get_current_tenants_by_admin(IN p_admin_id INT)`
 
@@ -179,7 +204,7 @@ USE warehouse_db;
 SET @admin_id = (
   SELECT admin_id
   FROM admin
-  WHERE user_name = 'layout_admin_0427030337'
+  WHERE user_name = 'admin1@gmail.com'
   LIMIT 1
 );
 
@@ -214,7 +239,7 @@ USE warehouse_db;
 SET @customer_id = (
   SELECT customer_id
   FROM customer
-  WHERE user_name = 'hung'
+  WHERE user_name = 'customer1@gmail.com'
   LIMIT 1
 );
 
@@ -251,7 +276,7 @@ USE warehouse_db;
 SET @customer_id = (
   SELECT customer_id
   FROM customer
-  WHERE user_name = 'hung'
+  WHERE user_name = 'customer1@gmail.com'
   LIMIT 1
 );
 
@@ -285,7 +310,7 @@ USE warehouse_db;
 SET @customer_id = (
   SELECT customer_id
   FROM customer
-  WHERE user_name = 'hung'
+  WHERE user_name = 'customer1@gmail.com'
   LIMIT 1
 );
 
@@ -360,16 +385,9 @@ Kỳ vọng:
 - `inbound_receipt.status` đổi từ `Draft` sang `Completed`
 - `inventory` xuất hiện thêm batch `SPK-DRAFT-2026` hoặc tăng số lượng nếu batch đã tồn tại
 
-Reset để demo lại:
-
-```sql
-UPDATE inbound_receipt
-SET status = 'Draft'
-WHERE receipt_id = 9802;
-```
-
-Khi reset:
-- Trigger sẽ tự trừ lại phần tồn đã cộng lúc hoàn tất
+Để demo an toàn:
+- nên chạy trong transaction rồi `ROLLBACK`
+- hoặc reload lại `sample_data.sql`
 
 ### 4.7. [PROCEDURE] `sp_complete_outbound_issue(IN p_issue_id INT)`
 
@@ -438,16 +456,9 @@ Kỳ vọng:
 - `outbound_issue.status` đổi từ `Draft` sang `Completed`
 - `inventory.quantity` của batch `BUTTER-APR26` bị trừ đúng `10`
 
-Reset để demo lại:
-
-```sql
-UPDATE outbound_issue
-SET status = 'Draft'
-WHERE issue_id = 9902;
-```
-
-Khi reset:
-- Trigger sẽ tự cộng lại số lượng đã trừ
+Để demo an toàn:
+- nên chạy trong transaction rồi `ROLLBACK`
+- hoặc reload lại `sample_data.sql`
 
 ## 5. Triggers
 
@@ -475,12 +486,11 @@ Các trigger trong project chia thành 5 nhóm: validate dữ liệu master, val
 
 | Trigger | Thời điểm | Bảng | Nó làm gì | Mục đích |
 |---|---|---|---|---|
-| [TRIGGER] `trg_inbound_receipt_au_inventory` | `AFTER UPDATE` | `inbound_receipt` | Khi phiếu đổi sang `Completed` thì cộng tồn theo detail; khi rời trạng thái `Completed` thì trừ ngược lại; chặn rollback nếu làm tồn âm | Đồng bộ tồn kho theo trạng thái phiếu nhập |
-| [TRIGGER] `trg_inbound_detail_au_inventory` | `AFTER UPDATE` | `inbound_receipt_detail` | Nếu detail cũ thuộc phiếu `Completed` thì trừ phần cũ; nếu detail mới thuộc phiếu `Completed` thì cộng phần mới; chặn âm kho | Tồn kho luôn khớp với detail hiện tại |
+| [TRIGGER] `trg_inbound_receipt_au_inventory` | `AFTER UPDATE` | `inbound_receipt` | Chỉ khi phiếu đổi từ trạng thái chưa `Completed` sang `Completed` thì cộng tồn theo detail | Ghi nhận hàng vào tồn kho đúng lúc chứng từ nhập được hoàn tất |
 
 Ý nghĩa trình bày:
 - Nhóm này cho thấy nhập kho không phải chỉ là thêm dòng vào detail.
-- Chỉ khi chứng từ hoàn tất hoặc detail của chứng từ hoàn tất thay đổi thì tồn kho mới được đồng bộ.
+- Tồn kho chỉ được cộng khi phiếu nhập thật sự chuyển từ `Draft` sang `Completed`.
 
 ### 5.4. Nhóm trigger validate phiếu xuất
 
@@ -489,13 +499,11 @@ Các trigger trong project chia thành 5 nhóm: validate dữ liệu master, val
 | [TRIGGER] `trg_outbound_detail_bi_validate` | `BEFORE INSERT` | `outbound_issue_detail` | Trim `batch_no`; chặn batch rỗng; chặn `quantity <= 0`; chặn `selling_price < 0` | Bảo đảm dữ liệu dòng xuất kho hợp lệ |
 | [TRIGGER] `trg_outbound_detail_bu_validate` | `BEFORE UPDATE` | `outbound_issue_detail` | Kiểm tra lại detail khi sửa | Không cho dòng xuất thành dữ liệu sai |
 | [TRIGGER] `trg_outbound_issue_bu_check_inventory` | `BEFORE UPDATE` | `outbound_issue` | Trước khi hoàn tất phiếu xuất, gom tổng số lượng cần xuất theo batch và kiểm tra tồn kho có đủ hay không | Chặn hoàn tất phiếu nếu kho không đủ hàng |
-| [TRIGGER] `trg_outbound_detail_bi_check_inventory` | `BEFORE INSERT` | `outbound_issue_detail` | Nếu phiếu cha đã `Completed`, detail mới thêm phải kiểm tra tồn kho ngay | Không cho thêm dòng xuất vượt tồn sau khi phiếu đã hoàn tất |
-
 ### 5.5. Nhóm trigger đồng bộ tồn kho khi xuất
 
 | Trigger | Thời điểm | Bảng | Nó làm gì | Mục đích |
 |---|---|---|---|---|
-| [TRIGGER] `trg_outbound_issue_au_inventory` | `AFTER UPDATE` | `outbound_issue` | Khi phiếu đổi sang `Completed` thì trừ kho; khi rời trạng thái `Completed` thì cộng trả lại kho | Đồng bộ tồn kho theo trạng thái phiếu xuất |
+| [TRIGGER] `trg_outbound_issue_au_inventory` | `AFTER UPDATE` | `outbound_issue` | Chỉ khi phiếu đổi từ trạng thái chưa `Completed` sang `Completed` thì trừ kho | Chỉ ghi nhận xuất kho khi chứng từ đã hoàn tất |
 
 Ý nghĩa trình bày:
 - Đây là phần thể hiện rõ nhất "DB tự xử lý nghiệp vụ".
@@ -515,9 +523,8 @@ USE warehouse_db;
 Nên chuẩn bị như sau:
 - Nếu dữ liệu demo đã bị thay đổi nhiều, chạy lại [sample_data.sql](/d:/Working/IdeaProjects/DBMS-warehouse-rental-management-merge-check/database/sample_data.sql:1).
 - Với các test chỉ để chứng minh trigger validate, nên dùng `START TRANSACTION;` rồi `ROLLBACK;` để không lưu dữ liệu.
-- Với các test cần xem tồn kho tăng giảm, có thể:
-  - dùng `START TRANSACTION;` rồi `ROLLBACK;`, hoặc
-  - chạy thật rồi reset bằng câu `UPDATE` như phần procedure ở trên.
+- Với các test cần xem tồn kho tăng giảm, nên dùng `START TRANSACTION;` rồi `ROLLBACK;`.
+- Không nên reset chỉ bằng cách đổi `status` từ `Completed` về `Draft`, vì trigger hiện chỉ xử lý chiều `Draft -> Completed`.
 
 Các ID mẫu tiện dùng:
 - `warehouse_id = 9101`
@@ -539,17 +546,9 @@ FROM outbound_issue
 WHERE issue_id IN (9901, 9902);
 ```
 
-Nếu bạn vừa demo procedure xong thì reset lại:
-
-```sql
-UPDATE inbound_receipt
-SET status = 'Draft'
-WHERE receipt_id = 9802;
-
-UPDATE outbound_issue
-SET status = 'Draft'
-WHERE issue_id = 9902;
-```
+Nếu bạn vừa demo procedure bằng cách chạy thật ngoài transaction:
+- nên reload lại `sample_data.sql`
+- hoặc tự chỉnh cả `status` lẫn `inventory` về đúng trạng thái mẫu
 
 ### 6.2. Test từng view
 
@@ -570,7 +569,7 @@ Test sâu hơn:
 SET @admin_id = (
   SELECT admin_id
   FROM admin
-  WHERE user_name = 'layout_admin_0427030337'
+  WHERE user_name = 'admin1@gmail.com'
   LIMIT 1
 );
 
@@ -643,7 +642,7 @@ Kỳ vọng:
 SET @customer_id = (
   SELECT customer_id
   FROM customer
-  WHERE user_name = 'hung'
+  WHERE user_name = 'customer1@gmail.com'
   LIMIT 1
 );
 
@@ -679,17 +678,30 @@ Kỳ vọng:
 #### 6.4.1. Test [PROCEDURE] `sp_expire_lease_contracts()`
 
 ```sql
-SELECT contract_id, status, start_date, end_date
+SELECT
+  contract_id,
+  status,
+  start_date,
+  end_date,
+  CASE
+    WHEN end_date < CURDATE()
+     AND status IN ('Pending', 'Active')
+    THEN 'will be updated by procedure'
+    ELSE 'not affected'
+  END AS procedure_effect
 FROM lease_contract
-WHERE end_date < CURDATE()
-  AND status IN ('Pending', 'Active');
+ORDER BY contract_id;
 
 CALL sp_expire_lease_contracts();
 ```
 
 Kỳ vọng:
-- Nếu có hợp đồng quá hạn mà chưa `Expired`, procedure sẽ đổi trạng thái
-- Nếu không có, `expired_contracts = 0`
+- Với sample hiện tại, `expired_contracts = 0` là kết quả đúng
+- Có thể giải thích ngay với giảng viên:
+  - `9201` chưa hết hạn nên không bị đổi
+  - `9202` đã quá hạn nhưng đã là `Expired` sẵn
+  - trigger `trg_lease_contract_bu_validate` đã giúp DB giữ trạng thái đồng bộ từ trước
+- Nếu giảng viên muốn thấy một procedure làm dữ liệu thay đổi rõ ràng, chuyển ngay sang `6.4.6` hoặc `6.4.7`
 
 #### 6.4.2. Test [PROCEDURE] `sp_get_current_tenants_by_admin`
 
@@ -697,7 +709,7 @@ Kỳ vọng:
 SET @admin_id = (
   SELECT admin_id
   FROM admin
-  WHERE user_name = 'layout_admin_0427030337'
+  WHERE user_name = 'admin1@gmail.com'
   LIMIT 1
 );
 
@@ -713,7 +725,7 @@ Kỳ vọng:
 SET @customer_id = (
   SELECT customer_id
   FROM customer
-  WHERE user_name = 'hung'
+  WHERE user_name = 'customer1@gmail.com'
   LIMIT 1
 );
 
@@ -729,7 +741,7 @@ Kỳ vọng:
 SET @customer_id = (
   SELECT customer_id
   FROM customer
-  WHERE user_name = 'hung'
+  WHERE user_name = 'customer1@gmail.com'
   LIMIT 1
 );
 
@@ -746,7 +758,7 @@ Kỳ vọng:
 SET @customer_id = (
   SELECT customer_id
   FROM customer
-  WHERE user_name = 'hung'
+  WHERE user_name = 'customer1@gmail.com'
   LIMIT 1
 );
 
@@ -787,13 +799,9 @@ Kỳ vọng:
 - Phiếu nhập đổi từ `Draft` sang `Completed`
 - Batch `SPK-DRAFT-2026` được cộng vào `inventory`
 
-Reset:
-
-```sql
-UPDATE inbound_receipt
-SET status = 'Draft'
-WHERE receipt_id = 9802;
-```
+Sau khi demo:
+- nên `ROLLBACK` nếu bạn đang chạy trong transaction
+- nếu đã chạy thật ngoài transaction thì reload lại `sample_data.sql`
 
 #### 6.4.7. Test [PROCEDURE] `sp_complete_outbound_issue`
 
@@ -825,13 +833,9 @@ Kỳ vọng:
 - Phiếu xuất đổi từ `Draft` sang `Completed`
 - `inventory.quantity` của `BUTTER-APR26` bị trừ đúng số lượng xuất
 
-Reset:
-
-```sql
-UPDATE outbound_issue
-SET status = 'Draft'
-WHERE issue_id = 9902;
-```
+Sau khi demo:
+- nên `ROLLBACK` nếu bạn đang chạy trong transaction
+- nếu đã chạy thật ngoài transaction thì reload lại `sample_data.sql`
 
 ### 6.5. Test từng trigger
 
@@ -941,7 +945,7 @@ INSERT INTO product (
   customer_id, category_id, is_deleted
 ) VALUES (
   99901, '   ', -1, '   ',
-  (SELECT customer_id FROM customer WHERE user_name = 'hung' LIMIT 1),
+  (SELECT customer_id FROM customer WHERE user_name = 'customer1@gmail.com' LIMIT 1),
   9401,
   FALSE
 );
@@ -1036,35 +1040,6 @@ ROLLBACK;
 Kỳ vọng:
 - Sau `UPDATE`, tồn kho tăng lên hoặc xuất hiện mới batch `SPK-DRAFT-2026`
 
-#### 6.5.10. Test [TRIGGER] `trg_inbound_detail_au_inventory`
-
-```sql
-START TRANSACTION;
-
-SELECT quantity
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9701
-  AND batch_no = 'SPK-A-2026';
-
-UPDATE inbound_receipt_detail
-SET quantity = quantity + 5
-WHERE receipt_id = 9801
-  AND product_id = 9701
-  AND batch_no = 'SPK-A-2026';
-
-SELECT quantity
-FROM inventory
-WHERE warehouse_id = 9101
-  AND product_id = 9701
-  AND batch_no = 'SPK-A-2026';
-
-ROLLBACK;
-```
-
-Kỳ vọng:
-- `inventory.quantity` tăng thêm `5`
-
 #### 6.5.11. Test [TRIGGER] `trg_outbound_detail_bi_validate`
 
 ```sql
@@ -1146,24 +1121,6 @@ ROLLBACK;
 
 Kỳ vọng:
 - `inventory.quantity` giảm đúng bằng số lượng của detail thuộc `issue_id = 9902`
-
-#### 6.5.15. Test [TRIGGER] `trg_outbound_detail_bi_check_inventory`
-
-```sql
-START TRANSACTION;
-
-INSERT INTO outbound_issue_detail (
-  issue_id, product_id, batch_no, quantity, selling_price
-) VALUES (
-  9901, 9702, 'BUTTER-APR26', 100000, 150000
-);
-
-ROLLBACK;
-```
-
-Kỳ vọng:
-- Vì `issue_id = 9901` đã `Completed`, trigger sẽ kiểm tra tồn kho ngay
-- Kết quả phải báo lỗi `Insufficient inventory for outbound detail`
 
 ## 7. Cách kể chuyện khi thuyết trình
 

@@ -106,10 +106,10 @@ LIMIT 5;
 - **Views (4):** `vw_current_tenants`, `vw_inventory_summary`, `vw_expiring_batches`, `vw_monthly_product_exports`.
 - **Functions (3):** `fn_inventory_batch_value`, `fn_customer_inventory_value`, `fn_available_inventory`.
 - **Stored Procedures (7):** ví dụ `sp_expire_lease_contracts`, `sp_complete_inbound_receipt`, `sp_complete_outbound_issue`, `sp_get_top_exported_products`.
-- **Triggers (15):**
+- **Triggers (13):**
   - Validate dữ liệu đầu vào trước insert/update.
-  - Tự động cộng/trừ tồn khi phiếu nhập/xuất chuyển `Completed`.
-  - Không cho sửa detail của phiếu sau khi đã `Completed`; chỉ cho thao tác ở trạng thái `Draft`.
+  - Tự động cộng tồn khi phiếu nhập chuyển `Draft -> Completed` và trừ tồn khi phiếu xuất chuyển `Draft -> Completed`.
+  - Chặn hoàn tất phiếu xuất khi tồn kho không đủ.
 
 ## 10) Transaction và xử lý lỗi
 - Ở tầng ứng dụng (Spring), các nghiệp vụ chính dùng `@Transactional` để đảm bảo **atomicity** (thành công toàn bộ hoặc rollback toàn bộ).

@@ -16,13 +16,11 @@ DROP TRIGGER IF EXISTS `trg_inbound_detail_bi_validate`;
 DROP TRIGGER IF EXISTS `trg_inbound_detail_bu_validate`;
 DROP TRIGGER IF EXISTS `trg_inbound_receipt_au_inventory`;
 DROP TRIGGER IF EXISTS `trg_inbound_detail_ai_inventory`;
-DROP TRIGGER IF EXISTS `trg_inbound_detail_au_inventory`;
 DROP TRIGGER IF EXISTS `trg_inbound_detail_ad_inventory`;
 DROP TRIGGER IF EXISTS `trg_outbound_detail_bi_validate`;
 DROP TRIGGER IF EXISTS `trg_outbound_detail_bu_validate`;
 DROP TRIGGER IF EXISTS `trg_outbound_issue_bu_check_inventory`;
 DROP TRIGGER IF EXISTS `trg_outbound_issue_au_inventory`;
-DROP TRIGGER IF EXISTS `trg_outbound_detail_bi_check_inventory`;
 DROP TRIGGER IF EXISTS `trg_outbound_detail_bu_check_inventory`;
 DROP TRIGGER IF EXISTS `trg_outbound_detail_ai_inventory`;
 DROP TRIGGER IF EXISTS `trg_outbound_detail_au_inventory`;
@@ -504,33 +502,8 @@ CREATE TRIGGER `trg_inbound_receipt_au_inventory`
 AFTER UPDATE ON `inbound_receipt`
 FOR EACH ROW
 BEGIN
-  IF OLD.`status` = 'Completed'
-     AND (NEW.`status` <> 'Completed' OR OLD.`warehouse_id` <> NEW.`warehouse_id`) THEN
-    IF EXISTS (
-      SELECT 1
-      FROM `inbound_receipt_detail` d
-      LEFT JOIN `inventory` i
-        ON i.`warehouse_id` = OLD.`warehouse_id`
-       AND i.`product_id` = d.`product_id`
-       AND i.`batch_no` = d.`batch_no`
-      WHERE d.`receipt_id` = OLD.`receipt_id`
-        AND COALESCE(i.`quantity`, 0) < d.`quantity`
-    ) THEN
-      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cannot reverse inbound receipt because inventory would become negative';
-    END IF;
-
-    UPDATE `inventory` i
-    JOIN `inbound_receipt_detail` d
-      ON d.`receipt_id` = OLD.`receipt_id`
-     AND d.`product_id` = i.`product_id`
-     AND d.`batch_no` = i.`batch_no`
-    SET i.`quantity` = i.`quantity` - d.`quantity`,
-        i.`last_updated` = NOW()
-    WHERE i.`warehouse_id` = OLD.`warehouse_id`;
-  END IF;
-
-  IF NEW.`status` = 'Completed'
-     AND (OLD.`status` <> 'Completed' OR OLD.`warehouse_id` <> NEW.`warehouse_id`) THEN
+  IF OLD.`status` <> 'Completed'
+     AND NEW.`status` = 'Completed' THEN
     IF NOT EXISTS (
       SELECT 1 FROM `inbound_receipt_detail` WHERE `receipt_id` = NEW.`receipt_id`
     ) THEN
@@ -541,47 +514,6 @@ BEGIN
     SELECT NEW.`warehouse_id`, d.`product_id`, d.`batch_no`, d.`quantity`, NOW()
     FROM `inbound_receipt_detail` d
     WHERE d.`receipt_id` = NEW.`receipt_id`
-    ON DUPLICATE KEY UPDATE
-      `quantity` = `inventory`.`quantity` + VALUES(`quantity`),
-      `last_updated` = NOW();
-  END IF;
-END$$
-
-CREATE TRIGGER `trg_inbound_detail_au_inventory`
-AFTER UPDATE ON `inbound_receipt_detail`
-FOR EACH ROW
-BEGIN
-  DECLARE v_old_warehouse_id INT;
-  DECLARE v_new_warehouse_id INT;
-  DECLARE v_old_status VARCHAR(20);
-  DECLARE v_new_status VARCHAR(20);
-
-  SELECT ir.`warehouse_id`, ir.`status`
-    INTO v_old_warehouse_id, v_old_status
-  FROM `inbound_receipt` ir
-  WHERE ir.`receipt_id` = OLD.`receipt_id`;
-
-  SELECT ir.`warehouse_id`, ir.`status`
-    INTO v_new_warehouse_id, v_new_status
-  FROM `inbound_receipt` ir
-  WHERE ir.`receipt_id` = NEW.`receipt_id`;
-
-  IF v_old_status = 'Completed' THEN
-    IF fn_available_inventory(v_old_warehouse_id, OLD.`product_id`, OLD.`batch_no`) < OLD.`quantity` THEN
-      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cannot update inbound detail because inventory would become negative';
-    END IF;
-
-    UPDATE `inventory`
-    SET `quantity` = `quantity` - OLD.`quantity`,
-        `last_updated` = NOW()
-    WHERE `warehouse_id` = v_old_warehouse_id
-      AND `product_id` = OLD.`product_id`
-      AND `batch_no` = OLD.`batch_no`;
-  END IF;
-
-  IF v_new_status = 'Completed' THEN
-    INSERT INTO `inventory` (`warehouse_id`, `product_id`, `batch_no`, `quantity`, `last_updated`)
-    VALUES (v_new_warehouse_id, NEW.`product_id`, NEW.`batch_no`, NEW.`quantity`, NOW())
     ON DUPLICATE KEY UPDATE
       `quantity` = `inventory`.`quantity` + VALUES(`quantity`),
       `last_updated` = NOW();
@@ -661,19 +593,8 @@ CREATE TRIGGER `trg_outbound_issue_au_inventory`
 AFTER UPDATE ON `outbound_issue`
 FOR EACH ROW
 BEGIN
-  IF OLD.`status` = 'Completed'
-     AND (NEW.`status` <> 'Completed' OR OLD.`warehouse_id` <> NEW.`warehouse_id`) THEN
-    INSERT INTO `inventory` (`warehouse_id`, `product_id`, `batch_no`, `quantity`, `last_updated`)
-    SELECT OLD.`warehouse_id`, d.`product_id`, d.`batch_no`, d.`quantity`, NOW()
-    FROM `outbound_issue_detail` d
-    WHERE d.`issue_id` = OLD.`issue_id`
-    ON DUPLICATE KEY UPDATE
-      `quantity` = `inventory`.`quantity` + VALUES(`quantity`),
-      `last_updated` = NOW();
-  END IF;
-
-  IF NEW.`status` = 'Completed'
-     AND (OLD.`status` <> 'Completed' OR OLD.`warehouse_id` <> NEW.`warehouse_id`) THEN
+  IF OLD.`status` <> 'Completed'
+     AND NEW.`status` = 'Completed' THEN
     UPDATE `inventory` i
     JOIN (
       SELECT d.`product_id`, d.`batch_no`, SUM(d.`quantity`) AS `requested_quantity`
@@ -686,24 +607,6 @@ BEGIN
     SET i.`quantity` = i.`quantity` - x.`requested_quantity`,
         i.`last_updated` = NOW()
     WHERE i.`warehouse_id` = NEW.`warehouse_id`;
-  END IF;
-END$$
-
-CREATE TRIGGER `trg_outbound_detail_bi_check_inventory`
-BEFORE INSERT ON `outbound_issue_detail`
-FOR EACH ROW
-BEGIN
-  DECLARE v_warehouse_id INT;
-  DECLARE v_status VARCHAR(20);
-
-  SELECT oi.`warehouse_id`, oi.`status`
-    INTO v_warehouse_id, v_status
-  FROM `outbound_issue` oi
-  WHERE oi.`issue_id` = NEW.`issue_id`;
-
-  IF v_status = 'Completed'
-     AND fn_available_inventory(v_warehouse_id, NEW.`product_id`, TRIM(NEW.`batch_no`)) < NEW.`quantity` THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Insufficient inventory for outbound detail';
   END IF;
 END$$
 
