@@ -1,37 +1,49 @@
 -- Sample data for the Hibernate-created MySQL schema.
 -- Login accounts created/updated by this script:
---   admin:    layout_admin_0427030337 / hung1342005
---   customer: hung / hung1342005
+--   admins:   admin1@gmail.com / 12345678
+--          
+--   customers:
+--             customer1@gmail.com / 12345678
+--             customer2@gmail.com / 12345678
+--             customer3@gmail.com / 12345678
+--             customer4@gmail.com / 12345678
+--             customer5@gmail.com / 12345678
 --
 -- The script is idempotent for the sample IDs below.
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-SET @sample_password = '$2a$10$ggSmUwcxnPUdBc90KNo/We2NYM7.hDN3UHy.Z3WT3r/dAvgnzRtrC';
+SET @sample_password = '$2a$10$lg7jM95UjJcON5ZzNfgmRuDB444DTSrXtfJ50J9iz7zRIchs2Ied2';
 
 INSERT INTO `admin` (`admin_name`, `user_name`, `email`, `password`, `created_at`)
-VALUES ('Layout Admin', 'layout_admin_0427030337', 'layout_admin_0427030337@example.com', @sample_password, NOW())
+VALUES
+  ('Admin 1', 'admin1@gmail.com', 'admin1@gmail.com', @sample_password, NOW())
 ON DUPLICATE KEY UPDATE
   `admin_name` = VALUES(`admin_name`),
   `password` = VALUES(`password`);
 
 INSERT INTO `customer` (`customer_name`, `user_name`, `email`, `password`, `phone_number`, `address`, `created_at`)
-VALUES ('Hung', 'hung', 'hung@example.com', @sample_password, '0900000001', 'Ho Chi Minh City', NOW())
+VALUES
+  ('Customer 1', 'customer1@gmail.com', 'customer1@gmail.com', @sample_password, '0900000001', 'Ho Chi Minh City', NOW()),
+  ('Customer 2', 'customer2@gmail.com', 'customer2@gmail.com', @sample_password, '0900000002', 'Ha Noi', NOW()),
+  ('Customer 3', 'customer3@gmail.com', 'customer3@gmail.com', @sample_password, '0900000003', 'Da Nang', NOW()),
+  ('Customer 4', 'customer4@gmail.com', 'customer4@gmail.com', @sample_password, '0900000004', 'Can Tho', NOW()),
+  ('Customer 5', 'customer5@gmail.com', 'customer5@gmail.com', @sample_password, '0900000005', 'Hai Phong', NOW())
 ON DUPLICATE KEY UPDATE
   `customer_name` = VALUES(`customer_name`),
   `password` = VALUES(`password`),
   `phone_number` = VALUES(`phone_number`),
   `address` = VALUES(`address`);
 
-SET @admin_id = (SELECT `admin_id` FROM `admin` WHERE `user_name` = 'layout_admin_0427030337' LIMIT 1);
-SET @customer_id = (SELECT `customer_id` FROM `customer` WHERE `user_name` = 'hung' LIMIT 1);
+SET @admin1_id = (SELECT `admin_id` FROM `admin` WHERE `user_name` = 'admin1@gmail.com' LIMIT 1);
+SET @customer1_id = (SELECT `customer_id` FROM `customer` WHERE `user_name` = 'customer1@gmail.com' LIMIT 1);
 
 INSERT INTO `warehouse` (`warehouse_id`, `warehouse_name`, `address`, `area`, `rental_price`, `status`, `admin_id`) VALUES
-  (9101, 'Sample Cold Storage A', 'District 7, Ho Chi Minh City', 1200, 12000000.00, 'Active', @admin_id),
-  (9102, 'Sample Dry Warehouse B', 'Thu Duc, Ho Chi Minh City', 1800, 15000000.00, 'Active', @admin_id),
-  (9103, 'Sample Maintenance Warehouse', 'Binh Thanh, Ho Chi Minh City', 900, 9000000.00, 'Maintenance', @admin_id),
-  (9104, 'Sample Inactive Warehouse', 'Tan Binh, Ho Chi Minh City', 750, 7000000.00, 'Inactive', @admin_id)
+  (9101, 'Sample Cold Storage A', 'District 7, Ho Chi Minh City', 1200, 12000000.00, 'Active', @admin1_id),
+  (9102, 'Sample Dry Warehouse B', 'Thu Duc, Ho Chi Minh City', 1800, 15000000.00, 'Active', @admin1_id),
+  (9103, 'Sample Maintenance Warehouse', 'Binh Thanh, Ho Chi Minh City', 900, 9000000.00, 'Maintenance', @admin1_id),
+  (9104, 'Sample Inactive Warehouse', 'Tan Binh, Ho Chi Minh City', 750, 7000000.00, 'Inactive', @admin1_id)
 ON DUPLICATE KEY UPDATE
   `warehouse_name` = VALUES(`warehouse_name`),
   `address` = VALUES(`address`),
@@ -41,8 +53,8 @@ ON DUPLICATE KEY UPDATE
   `admin_id` = VALUES(`admin_id`);
 
 INSERT INTO `lease_contract` (`contract_id`, `customer_id`, `warehouse_id`, `start_date`, `end_date`, `rental_price`, `status`, `purpose`, `created_at`) VALUES
-  (9201, @customer_id, 9101, '2026-04-01', '2026-12-31', 12000000.00, 'Active', 'Sample active rental contract', NOW()),
-  (9202, @customer_id, 9103, '2026-01-01', '2026-03-31', 9000000.00, 'Expired', 'Expired sample contract', NOW())
+  (9201, @customer1_id, 9101, '2026-04-01', '2026-12-31', 12000000.00, 'Active', 'Sample active rental contract', NOW()),
+  (9202, @customer1_id, 9103, '2026-01-01', '2026-03-31', 9000000.00, 'Expired', 'Expired sample contract', NOW())
 ON DUPLICATE KEY UPDATE
   `customer_id` = VALUES(`customer_id`),
   `warehouse_id` = VALUES(`warehouse_id`),
@@ -53,9 +65,9 @@ ON DUPLICATE KEY UPDATE
   `purpose` = VALUES(`purpose`);
 
 INSERT INTO `warehouse_rental_request` (`request_id`, `customer_id`, `warehouse_id`, `start_date`, `end_date`, `rental_price`, `purpose`, `status`, `review_note`, `contract_id`, `created_at`, `reviewed_at`) VALUES
-  (9301, @customer_id, 9101, '2026-04-01', '2026-12-31', 12000000.00, 'Sample approved request', 'Approved', 'Approved sample request', 9201, NOW(), NOW()),
-  (9302, @customer_id, 9102, '2026-05-01', '2026-08-31', 15000000.00, 'Need extra dry storage', 'Pending', NULL, NULL, NOW(), NULL),
-  (9303, @customer_id, 9102, '2026-09-01', '2026-10-31', 15000000.00, 'Short-term overflow storage', 'Rejected', 'Warehouse reserved for internal maintenance window', NULL, NOW(), NOW())
+  (9301, @customer1_id, 9101, '2026-04-01', '2026-12-31', 12000000.00, 'Sample approved request', 'Approved', 'Approved sample request', 9201, NOW(), NOW()),
+  (9302, @customer1_id, 9102, '2026-05-01', '2026-08-31', 15000000.00, 'Need extra dry storage', 'Pending', NULL, NULL, NOW(), NULL),
+  (9303, @customer1_id, 9102, '2026-09-01', '2026-10-31', 15000000.00, 'Short-term overflow storage', 'Rejected', 'Warehouse reserved for internal maintenance window', NULL, NOW(), NOW())
 ON DUPLICATE KEY UPDATE
   `customer_id` = VALUES(`customer_id`),
   `warehouse_id` = VALUES(`warehouse_id`),
@@ -69,16 +81,16 @@ ON DUPLICATE KEY UPDATE
   `reviewed_at` = VALUES(`reviewed_at`);
 
 INSERT INTO `category` (`category_id`, `category_name`, `customer_id`, `is_deleted`) VALUES
-  (9401, 'Electronics', @customer_id, FALSE),
-  (9402, 'Food Ingredients', @customer_id, FALSE)
+  (9401, 'Electronics', @customer1_id, FALSE),
+  (9402, 'Food Ingredients', @customer1_id, FALSE)
 ON DUPLICATE KEY UPDATE
   `category_name` = VALUES(`category_name`),
   `customer_id` = VALUES(`customer_id`),
   `is_deleted` = VALUES(`is_deleted`);
 
 INSERT INTO `supplier` (`supplier_id`, `supplier_name`, `phone_number`, `address`, `customer_id`, `is_deleted`) VALUES
-  (9501, 'Saigon Supply Co.', '0901000001', 'District 1, Ho Chi Minh City', @customer_id, FALSE),
-  (9502, 'Mekong Fresh Logistics', '0901000002', 'Can Tho', @customer_id, FALSE)
+  (9501, 'Saigon Supply Co.', '0901000001', 'District 1, Ho Chi Minh City', @customer1_id, FALSE),
+  (9502, 'Mekong Fresh Logistics', '0901000002', 'Can Tho', @customer1_id, FALSE)
 ON DUPLICATE KEY UPDATE
   `supplier_name` = VALUES(`supplier_name`),
   `phone_number` = VALUES(`phone_number`),
@@ -87,8 +99,8 @@ ON DUPLICATE KEY UPDATE
   `is_deleted` = VALUES(`is_deleted`);
 
 INSERT INTO `buyer` (`buyer_id`, `buyer_name`, `email`, `phone_number`, `address`, `customer_id`, `is_deleted`) VALUES
-  (9601, 'Sample Retail Buyer', 'buyer@example.com', '0902000001', 'District 3, Ho Chi Minh City', @customer_id, FALSE),
-  (9602, 'Sample Wholesale Buyer', 'wholesale@example.com', '0902000002', 'Da Nang', @customer_id, FALSE)
+  (9601, 'Sample Retail Buyer', 'buyer@example.com', '0902000001', 'District 3, Ho Chi Minh City', @customer1_id, FALSE),
+  (9602, 'Sample Wholesale Buyer', 'wholesale@example.com', '0902000002', 'Da Nang', @customer1_id, FALSE)
 ON DUPLICATE KEY UPDATE
   `buyer_name` = VALUES(`buyer_name`),
   `email` = VALUES(`email`),
@@ -98,8 +110,8 @@ ON DUPLICATE KEY UPDATE
   `is_deleted` = VALUES(`is_deleted`);
 
 INSERT INTO `product` (`product_id`, `product_name`, `current_price`, `unit_of_measure`, `customer_id`, `category_id`, `is_deleted`) VALUES
-  (9701, 'Bluetooth Speaker', 450000.00, 'pcs', @customer_id, 9401, FALSE),
-  (9702, 'Imported Butter', 120000.00, 'box', @customer_id, 9402, FALSE)
+  (9701, 'Bluetooth Speaker', 450000.00, 'pcs', @customer1_id, 9401, FALSE),
+  (9702, 'Imported Butter', 120000.00, 'box', @customer1_id, 9402, FALSE)
 ON DUPLICATE KEY UPDATE
   `product_name` = VALUES(`product_name`),
   `current_price` = VALUES(`current_price`),
