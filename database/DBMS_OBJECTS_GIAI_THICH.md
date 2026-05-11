@@ -74,7 +74,7 @@ ORDER BY total_quantity_exported DESC;
 |---|---|---|---|---|
 | [FUNCTION] `fn_inventory_batch_value` | `warehouse_id`, `product_id`, `batch_no` | `DECIMAL(18,2)` | Tính giá trị tồn kho của đúng một lô hàng trong một kho | Dùng khi cần biết giá trị tiền của từng batch |
 | [FUNCTION] `fn_customer_inventory_value` | `customer_id` | `DECIMAL(18,2)` | Tính tổng giá trị tồn kho của toàn bộ sản phẩm thuộc một khách hàng | Dùng cho báo cáo tổng tài sản lưu kho của khách |
-| [FUNCTION] `fn_available_inventory` | `warehouse_id`, `product_id`, `batch_no` | `INT` | Trả về số lượng tồn khả dụng hiện tại của một batch | Dùng trong trigger/procedure để chặn xuất vượt tồn hoặc rollback sai |
+| [FUNCTION] `fn_available_inventory` | `warehouse_id`, `product_id`, `batch_no` | `INT` | Trả về số lượng tồn khả dụng hiện tại của một batch | Dùng trong trigger/procedure để kiểm tra tồn kho trước khi hoàn tất phiếu xuất |
 
 ### Query nhanh để demo function
 
@@ -103,6 +103,11 @@ Gợi ý demo procedure theo thứ tự an toàn:
 - Muốn ra dữ liệu ngay, ít rủi ro: `sp_get_current_tenants_by_admin`, `sp_get_customer_inventory_value`, `sp_get_expiring_batches`, `sp_get_top_exported_products`
 - Muốn thấy dữ liệu thay đổi rõ ràng trước/sau: `sp_complete_inbound_receipt`, `sp_complete_outbound_issue`
 - `sp_expire_lease_contracts()` nên demo theo hướng giải thích kiến trúc, vì trên bộ sample hiện tại nó thường trả `0` và đó là kết quả đúng
+
+Quan hệ quan trọng giữa procedure và trigger trong luồng nhập/xuất:
+- `sp_complete_inbound_receipt()` chỉ đổi trạng thái phiếu nhập sang `Completed`; trigger `trg_inbound_receipt_au_inventory` mới là phần tự cộng tồn kho.
+- `sp_complete_outbound_issue()` chỉ đổi trạng thái phiếu xuất sang `Completed`; trigger `trg_outbound_issue_bu_check_inventory` chặn xuất vượt tồn trước khi update, còn trigger `trg_outbound_issue_au_inventory` mới là phần tự trừ tồn kho.
+- Vì vậy procedure là "lệnh nghiệp vụ", còn trigger là "phản ứng tự động của database" sau khi trạng thái đổi.
 
 ### Query hỗ trợ tìm ID demo
 
@@ -403,7 +408,8 @@ Nó làm gì:
 - Sau khi status đổi thành công, trigger `trg_outbound_issue_au_inventory` sẽ tự trừ tồn kho
 
 Tác dụng:
-- Đóng gói nghiệp vụ xuất kho thành một lệnh có đủ kiểm tra và cập nhật
+- Đóng gói thao tác hoàn tất phiếu xuất thành một lệnh nghiệp vụ chuẩn
+- Tách phần "ra lệnh complete" khỏi phần "kiểm tra tồn và trừ kho", giúp luồng DB rõ ràng hơn
 
 Mục đích nghiệp vụ:
 - Không cho xuất vượt tồn và chỉ trừ kho khi phiếu thật sự hoàn tất
@@ -499,6 +505,11 @@ Các trigger trong project chia thành 5 nhóm: validate dữ liệu master, val
 | [TRIGGER] `trg_outbound_detail_bi_validate` | `BEFORE INSERT` | `outbound_issue_detail` | Trim `batch_no`; chặn batch rỗng; chặn `quantity <= 0`; chặn `selling_price < 0` | Bảo đảm dữ liệu dòng xuất kho hợp lệ |
 | [TRIGGER] `trg_outbound_detail_bu_validate` | `BEFORE UPDATE` | `outbound_issue_detail` | Kiểm tra lại detail khi sửa | Không cho dòng xuất thành dữ liệu sai |
 | [TRIGGER] `trg_outbound_issue_bu_check_inventory` | `BEFORE UPDATE` | `outbound_issue` | Trước khi hoàn tất phiếu xuất, gom tổng số lượng cần xuất theo batch và kiểm tra tồn kho có đủ hay không | Chặn hoàn tất phiếu nếu kho không đủ hàng |
+
+Ý nghĩa trình bày:
+- Trigger `trg_outbound_issue_bu_check_inventory` là lớp guard quan trọng nhất của luồng xuất kho ở tầng DB.
+- Với flow hiện tại của project, phiếu `Draft` chỉ có thể đi tới `Completed` hoặc `Cancelled`, nên trigger này vẫn cần giữ lại để chặn trường hợp complete khi kho không đủ hàng.
+- Nếu bỏ trigger này mà không chuyển check sang nơi khác, trigger `trg_outbound_issue_au_inventory` vẫn trừ kho và có thể làm dữ liệu tồn kho sai lệch.
 ### 5.5. Nhóm trigger đồng bộ tồn kho khi xuất
 
 | Trigger | Thời điểm | Bảng | Nó làm gì | Mục đích |
