@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # 1. Database MySQL
+  db:
+    image: mysql:8.0
+    container_name: dbms_mysql
+    restart: always
+    environment:
+      MYSQL_DATABASE: warehouse_db
+      MYSQL_ROOT_PASSWORD: rootpassword
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  # 2. Spring Boot Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dbms_backend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      # Kết nối tới container 'db'
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/warehouse_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=rootpassword
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    depends_on:
+      - db
+
+  # 3. Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dbms_frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      # Truyền URL của backend để frontend gọi API
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+
+# Khai báo volume để dữ liệu database không bị mất khi xóa container
+volumes:
+  db_data:
