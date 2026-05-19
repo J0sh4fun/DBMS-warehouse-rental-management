@@ -1,0 +1,23 @@
+# Bỏ qua thư viện tải sẵn ở máy local
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Bỏ qua các thư mục build cũ của Next.js
+.next
+out
+build
+
+# Bỏ qua các file cấu hình môi trường local (chứa secret key)
+.env*.local
+
+# Git và các file cấu hình Docker
+.git
+.gitignore
+Dockerfile
+.dockerignore
+
+# Các thư mục sinh ra từ Editor/IDE
+.vscode
+.idea
