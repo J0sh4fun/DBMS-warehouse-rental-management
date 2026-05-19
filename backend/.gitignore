@@ -78,8 +78,7 @@ Desktop.ini
 $RECYCLE.BIN/
 
 ### SECURITY & ENV CONFIGS ###
-application-local.properties
-application-dev.properties
+application.properties
 *.env
 .env.local
 .env.development.local
