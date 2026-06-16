@@ -28,6 +28,69 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+function wrapAxisLabel(value: string, maxCharsPerLine = 12) {
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  if (!normalized) return ['-'];
+
+  const lines: string[] = [];
+  let currentLine = '';
+
+  normalized.split(' ').forEach((word) => {
+    if (word.length > maxCharsPerLine) {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = '';
+      }
+
+      for (let index = 0; index < word.length; index += maxCharsPerLine) {
+        lines.push(word.slice(index, index + maxCharsPerLine));
+      }
+      return;
+    }
+
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    if (candidate.length <= maxCharsPerLine) {
+      currentLine = candidate;
+      return;
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    currentLine = word;
+  });
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+
+function WrappedAxisTick({
+  x = 0,
+  y = 0,
+  payload,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string | number };
+}) {
+  const lines = wrapAxisLabel(String(payload?.value ?? ''));
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={0} y={0} dy={16} textAnchor="middle" fill="currentColor" className="text-xs text-muted-foreground">
+        {lines.map((line, index) => (
+          <tspan key={`${line}-${index}`} x={0} dy={index === 0 ? 0 : 14}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
+  );
+}
+
 export default function Reports() {
   const [inventoryValue, setInventoryValue] = useState<InventoryValueResponse | null>(null);
   const [expiringBatches, setExpiringBatches] = useState<ExpiringBatchResponse[]>([]);
@@ -152,10 +215,10 @@ export default function Reports() {
               {topProducts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No completed outbound data for this month.</p>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={topProducts}>
+                <ResponsiveContainer width="100%" height={340}>
+                  <BarChart data={topProducts} margin={{ top: 8, right: 8, left: 0, bottom: 24 }}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="productName" />
+                    <XAxis dataKey="productName" interval={0} height={84} tick={<WrappedAxisTick />} />
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="totalQuantity" fill="var(--primary)" radius={[6, 6, 0, 0]} />
@@ -174,10 +237,10 @@ export default function Reports() {
               {stockChart.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No inventory summary available.</p>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={stockChart}>
+                <ResponsiveContainer width="100%" height={340}>
+                  <BarChart data={stockChart} margin={{ top: 8, right: 8, left: 0, bottom: 24 }}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
+                    <XAxis dataKey="name" interval={0} height={84} tick={<WrappedAxisTick />} />
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="quantity" fill="var(--accent)" radius={[6, 6, 0, 0]} />

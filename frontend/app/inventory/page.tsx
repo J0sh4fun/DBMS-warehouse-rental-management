@@ -55,7 +55,6 @@ const inboundDefault = {
   productId: '',
   batchNo: '',
   quantity: '1',
-  importPrice: '0',
   expiryDate: '',
 };
 
@@ -128,6 +127,13 @@ export default function Inventory() {
     () => new Map(inventory.map((item) => [inventoryKey(item.warehouseId, item.productId, item.batchNo), item.batchValue])),
     [inventory]
   );
+  const selectedInboundProduct = useMemo(
+    () => (inboundForm.productId ? productById.get(Number(inboundForm.productId)) ?? null : null),
+    [inboundForm.productId, productById]
+  );
+  const inboundUnitPrice = selectedInboundProduct?.currentPrice ?? 0;
+  const inboundQuantity = Number(inboundForm.quantity) || 0;
+  const inboundBatchValuePreview = inboundUnitPrice * inboundQuantity;
 
   const filteredInventory = inventory.filter(
     (item) =>
@@ -225,7 +231,7 @@ export default function Inventory() {
             productId: Number(inboundForm.productId),
             batchNo: inboundForm.batchNo,
             quantity: Number(inboundForm.quantity),
-            importPrice: Number(inboundForm.importPrice),
+            importPrice: inboundUnitPrice,
             expiryDate: inboundForm.expiryDate || undefined,
           },
         ],
@@ -257,6 +263,12 @@ export default function Inventory() {
     } catch (err) {
       setError(formatError(err));
     }
+  };
+
+  const getReceiptDetailBatchValue = (detail: InboundReceiptResponse['details'][number]) => {
+    const currentProductPrice = productById.get(detail.productId)?.currentPrice;
+    const unitPrice = currentProductPrice ?? Number(detail.importPrice || 0);
+    return detail.quantity * unitPrice;
   };
 
   return (
@@ -329,8 +341,8 @@ export default function Inventory() {
                       <TableBody>
                         {filteredInventory.map((item) => (
                           <TableRow key={inventoryKey(item.warehouseId, item.productId, item.batchNo)}>
-                            <TableCell>{item.warehouseName} #{item.warehouseId}</TableCell>
-                            <TableCell>{item.productName}</TableCell>
+                              <TableCell>{item.warehouseName} #{item.warehouseId}</TableCell>
+                            <TableCell className="max-w-56 whitespace-normal break-words">{item.productName}</TableCell>
                             <TableCell className="font-medium">{item.batchNo}</TableCell>
                             <TableCell className="text-right">{formatNumber(item.quantity)}</TableCell>
                             <TableCell>{item.unitOfMeasure}</TableCell>
@@ -397,7 +409,12 @@ export default function Inventory() {
                     </div>
                     <div className="space-y-2">
                       <Label>Product</Label>
-                      <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={inboundForm.productId} onChange={(event) => setInboundForm({ ...inboundForm, productId: event.target.value })} required>
+                      <select
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                        value={inboundForm.productId}
+                        onChange={(event) => setInboundForm({ ...inboundForm, productId: event.target.value })}
+                        required
+                      >
                         <option value="">Select product</option>
                         {products.map((product) => (
                           <option key={product.productId} value={product.productId}>
@@ -419,12 +436,20 @@ export default function Inventory() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label>Import Price</Label>
-                        <Input type="number" min="0" step="0.01" value={inboundForm.importPrice} onChange={(event) => setInboundForm({ ...inboundForm, importPrice: event.target.value })} required />
+                        <Input type="number" min="0" step="0.01" value={inboundUnitPrice} readOnly className="bg-muted" />
+                        <p className="text-xs text-muted-foreground">Auto-filled from the selected product price.</p>
                       </div>
                       <div className="space-y-2">
                         <Label>Expiry Date</Label>
                         <Input type="date" value={inboundForm.expiryDate} onChange={(event) => setInboundForm({ ...inboundForm, expiryDate: event.target.value })} />
                       </div>
+                    </div>
+                    <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-muted-foreground">Batch Value Preview</span>
+                        <span className="font-semibold">{formatCurrency(inboundBatchValuePreview)}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">Preview only. Warehouse totals update after the receipt is marked Completed.</p>
                     </div>
                     <Button type="submit" disabled={saving || warehouseOptions.length === 0 || products.length === 0 || suppliers.length === 0}>
                       <Plus className="h-4 w-4" />
@@ -461,17 +486,19 @@ export default function Inventory() {
                               <TableCell className="font-medium">{receipt.receiptId}</TableCell>
                               <TableCell>{receipt.warehouseName} #{receipt.warehouseId}</TableCell>
                               <TableCell>{receipt.supplierName}</TableCell>
-                              <TableCell>
+                              <TableCell className="align-top">
                                 {receipt.details.map((detail) => (
-                                  <div key={`${receipt.receiptId}-${detail.productId}-${detail.batchNo}`} className="text-sm">
+                                  <div key={`${receipt.receiptId}-${detail.productId}-${detail.batchNo}`} className="max-w-64 whitespace-normal break-words text-sm">
                                     {detail.productName || productById.get(detail.productId)?.productName || detail.productId} / {detail.batchNo}: {formatNumber(detail.quantity)}
                                   </div>
                                 ))}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="align-top">
                                 {receipt.details.map((detail) => (
                                   <div key={`${receipt.receiptId}-${detail.productId}-${detail.batchNo}-value`} className="text-sm">
-                                    {formatCurrency(batchValueByInventoryKey.get(inventoryKey(receipt.warehouseId, detail.productId, detail.batchNo)) ?? 0)}
+                                    {formatCurrency(receipt.status === 'Completed'
+                                      ? batchValueByInventoryKey.get(inventoryKey(receipt.warehouseId, detail.productId, detail.batchNo)) ?? getReceiptDetailBatchValue(detail)
+                                      : getReceiptDetailBatchValue(detail))}
                                   </div>
                                 ))}
                               </TableCell>
@@ -574,7 +601,7 @@ export default function Inventory() {
                         <TableBody>
                           {products.map((product) => (
                             <TableRow key={product.productId}>
-                              <TableCell className="font-medium">{product.productName}</TableCell>
+                              <TableCell className="max-w-56 whitespace-normal break-words font-medium">{product.productName}</TableCell>
                               <TableCell>{categoryById.get(product.categoryId) || product.categoryId}</TableCell>
                               <TableCell>{product.unitOfMeasure}</TableCell>
                               <TableCell className="text-right">{formatCurrency(product.currentPrice)}</TableCell>
