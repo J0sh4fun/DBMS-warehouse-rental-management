@@ -79,8 +79,8 @@ function WrappedAxisTick({
   const lines = wrapAxisLabel(String(payload?.value ?? ''));
 
   return (
-    <g transform={`translate(${x},${y})`}>
-      <text x={0} y={0} dy={16} textAnchor="middle" fill="currentColor" className="text-xs text-muted-foreground">
+    <g transform={`translate(${x},${y + 14})`}>
+      <text x={0} y={0} textAnchor="middle" fill="currentColor" className="text-xs text-muted-foreground">
         {lines.map((line, index) => (
           <tspan key={`${line}-${index}`} x={0} dy={index === 0 ? 0 : 14}>
             {line}
@@ -218,7 +218,7 @@ export default function Reports() {
                 <ResponsiveContainer width="100%" height={340}>
                   <BarChart data={topProducts} margin={{ top: 8, right: 8, left: 0, bottom: 24 }}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="productName" interval={0} height={84} tick={<WrappedAxisTick />} />
+                    <XAxis dataKey="productName" interval={0} height={96} tickMargin={10} tick={<WrappedAxisTick />} />
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="totalQuantity" fill="var(--primary)" radius={[6, 6, 0, 0]} />
@@ -240,7 +240,7 @@ export default function Reports() {
                 <ResponsiveContainer width="100%" height={340}>
                   <BarChart data={stockChart} margin={{ top: 8, right: 8, left: 0, bottom: 24 }}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" interval={0} height={84} tick={<WrappedAxisTick />} />
+                    <XAxis dataKey="name" interval={0} height={96} tickMargin={10} tick={<WrappedAxisTick />} />
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="quantity" fill="var(--accent)" radius={[6, 6, 0, 0]} />
