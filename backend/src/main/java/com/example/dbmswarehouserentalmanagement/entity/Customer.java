@@ -16,9 +16,9 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "Customer", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_customer_username", columnNames = "UserName"),
-        @UniqueConstraint(name = "uk_customer_email", columnNames = "Email")
+@Table(name = "khach_hang", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_customer_username", columnNames = "ten_dang_nhap"),
+        @UniqueConstraint(name = "uk_customer_email", columnNames = "email")
 })
 @Getter
 @Setter
@@ -29,28 +29,29 @@ public class Customer {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "CustomerId")
+    @Column(name = "ma_khach_hang")
     private Integer customerId;
 
-    @Column(name = "CustomerName", nullable = false)
+    @Column(name = "ten_khach_hang", nullable = false)
     private String customerName;
 
-    @Column(name = "UserName", nullable = false, length = 100)
+    @Column(name = "ten_dang_nhap", nullable = false, length = 100)
     private String userName;
 
-    @Column(name = "Email", nullable = false)
+    @Column(name = "email", nullable = false)
     private String email;
 
-    @Column(name = "Password", nullable = false)
+    @Column(name = "mat_khau", nullable = false)
     private String password;
 
-    @Column(name = "PhoneNumber", length = 30)
+    @Column(name = "so_dien_thoai", length = 30)
     private String phoneNumber;
 
-    @Column(name = "Address")
+    @Column(name = "dia_chi")
     private String address;
 
-    @Column(name = "CreatedAt", nullable = false)
+    @Column(name = "tao_luc", nullable = false)
     private LocalDateTime createdAt;
 }
+
 

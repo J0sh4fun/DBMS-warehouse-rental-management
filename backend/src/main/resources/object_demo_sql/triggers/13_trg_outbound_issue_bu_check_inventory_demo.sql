@@ -1,7 +1,7 @@
--- DEMO OBJECT: TRIGGER trg_outbound_issue_bu_check_inventory
+-- DEMO OBJECT: TRIGGER trigger_kiem_tra_ton_kho_truoc_khi_cap_nhat_phieu_xuat
 -- Expected result:
 -- - The final UPDATE to Completed fails
--- - Expected error message: Insufficient inventory to complete outbound issue
+-- - Expected error message: Insufficient ton_kho to complete outbound issue
 -- Important:
 -- - This script starts a transaction first
 -- - If your SQL client stops on the expected error, run ROLLBACK manually in the same session
@@ -11,14 +11,18 @@ USE warehouse_db;
 
 START TRANSACTION;
 
-UPDATE outbound_issue_detail
-SET quantity = 100000
-WHERE issue_id = 9902
-  AND product_id = 9702
-  AND batch_no = 'BUTTER-APR26';
+UPDATE chi_tiet_phieu_xuat
+SET so_luong = 100000
+WHERE ma_phieu_xuat = 9902
+  AND ma_san_pham = 9702
+  AND so_lo = 'BUTTER-APR26';
 
-UPDATE outbound_issue
-SET status = 'Completed'
-WHERE issue_id = 9902;
+UPDATE phieu_xuat
+SET trang_thai = 'Completed'
+WHERE ma_phieu_xuat = 9902;
 
 ROLLBACK;
+
+
+
+

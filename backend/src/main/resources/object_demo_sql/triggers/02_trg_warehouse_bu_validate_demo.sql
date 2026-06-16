@@ -1,10 +1,12 @@
--- DEMO OBJECT: TRIGGER trg_warehouse_bu_validate
+-- DEMO OBJECT: TRIGGER trigger_kiem_tra_kho_truoc_khi_cap_nhat
 -- Expected result:
 -- - The UPDATE fails
--- - Expected error message: Warehouse name is required
+-- - Expected error message: kho name is required
 
 USE warehouse_db;
 
-UPDATE warehouse
-SET warehouse_name = '   '
-WHERE warehouse_id = 9101;
+UPDATE kho
+SET ten_kho = '   '
+WHERE ma_kho = 9101;
+
+

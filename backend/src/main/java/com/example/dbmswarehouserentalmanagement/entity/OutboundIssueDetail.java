@@ -17,7 +17,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "OutboundIssueDetail")
+@Table(name = "chi_tiet_phieu_xuat")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -29,17 +29,19 @@ public class OutboundIssueDetail {
     private OutboundIssueDetailId id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "IssueId", referencedColumnName = "IssueId", nullable = false, insertable = false, updatable = false)
+    @JoinColumn(name = "ma_phieu_xuat", referencedColumnName = "ma_phieu_xuat", nullable = false, insertable = false, updatable = false)
     private OutboundIssue outboundIssue;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ProductId", referencedColumnName = "ProductId", nullable = false, insertable = false, updatable = false)
+    @JoinColumn(name = "ma_san_pham", referencedColumnName = "ma_san_pham", nullable = false, insertable = false, updatable = false)
     private Product product;
 
-    @Column(name = "Quantity", nullable = false)
+    @Column(name = "so_luong", nullable = false)
     private Integer quantity;
 
-    @Column(name = "SellingPrice", nullable = false, precision = 18, scale = 2)
+    @Column(name = "gia_ban", nullable = false, precision = 18, scale = 2)
     private BigDecimal sellingPrice;
 }
+
+
 

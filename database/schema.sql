@@ -1,257 +1,260 @@
--- Warehouse Rental & Logistics Management System
+-- He thong quan ly cho thue kho va logistics
 -- MySQL 8+ table schema generated from DBML with architectural constraints.
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-DROP TABLE IF EXISTS `OutboundIssueDetail`;
-DROP TABLE IF EXISTS `OutboundIssue`;
-DROP TABLE IF EXISTS `InboundReceiptDetail`;
-DROP TABLE IF EXISTS `InboundReceipt`;
-DROP TABLE IF EXISTS `Inventory`;
-DROP TABLE IF EXISTS `Product`;
-DROP TABLE IF EXISTS `Category`;
-DROP TABLE IF EXISTS `Supplier`;
-DROP TABLE IF EXISTS `Buyer`;
-DROP TABLE IF EXISTS `WarehouseRentalRequest`;
-DROP TABLE IF EXISTS `LeaseContract`;
-DROP TABLE IF EXISTS `Warehouse`;
-DROP TABLE IF EXISTS `Customer`;
-DROP TABLE IF EXISTS `Admin`;
+DROP TABLE IF EXISTS `chi_tiet_phieu_xuat`;
+DROP TABLE IF EXISTS `phieu_xuat`;
+DROP TABLE IF EXISTS `chi_tiet_phieu_nhap`;
+DROP TABLE IF EXISTS `phieu_nhap`;
+DROP TABLE IF EXISTS `ton_kho`;
+DROP TABLE IF EXISTS `san_pham`;
+DROP TABLE IF EXISTS `danh_muc`;
+DROP TABLE IF EXISTS `nha_cung_cap`;
+DROP TABLE IF EXISTS `nguoi_mua`;
+DROP TABLE IF EXISTS `yeu_cau_thue_kho`;
+DROP TABLE IF EXISTS `hop_dong_thue`;
+DROP TABLE IF EXISTS `kho`;
+DROP TABLE IF EXISTS `khach_hang`;
+DROP TABLE IF EXISTS `quan_tri_vien`;
 
-CREATE TABLE `Admin` (
-  `AdminId` INT NOT NULL AUTO_INCREMENT,
-  `AdminName` VARCHAR(255) NOT NULL,
-  `UserName` VARCHAR(100) NOT NULL,
-  `Email` VARCHAR(255) NOT NULL,
-  `Password` VARCHAR(255) NOT NULL,
-  `CreatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`AdminId`),
-  UNIQUE KEY `uk_admin_username` (`UserName`),
-  UNIQUE KEY `uk_admin_email` (`Email`)
+CREATE TABLE `quan_tri_vien` (
+  `ma_quan_tri_vien` INT NOT NULL AUTO_INCREMENT,
+  `ten_quan_tri_vien` VARCHAR(255) NOT NULL,
+  `ten_dang_nhap` VARCHAR(100) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `mat_khau` VARCHAR(255) NOT NULL,
+  `tao_luc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ma_quan_tri_vien`),
+  UNIQUE KEY `uk_admin_username` (`ten_dang_nhap`),
+  UNIQUE KEY `uk_admin_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `Customer` (
-  `CustomerId` INT NOT NULL AUTO_INCREMENT,
-  `CustomerName` VARCHAR(255) NOT NULL,
-  `UserName` VARCHAR(100) NOT NULL,
-  `Email` VARCHAR(255) NOT NULL,
-  `Password` VARCHAR(255) NOT NULL,
-  `PhoneNumber` VARCHAR(30),
-  `Address` VARCHAR(255),
-  `CreatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`CustomerId`),
-  UNIQUE KEY `uk_customer_username` (`UserName`),
-  UNIQUE KEY `uk_customer_email` (`Email`)
+CREATE TABLE `khach_hang` (
+  `ma_khach_hang` INT NOT NULL AUTO_INCREMENT,
+  `ten_khach_hang` VARCHAR(255) NOT NULL,
+  `ten_dang_nhap` VARCHAR(100) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `mat_khau` VARCHAR(255) NOT NULL,
+  `so_dien_thoai` VARCHAR(30),
+  `dia_chi` VARCHAR(255),
+  `tao_luc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ma_khach_hang`),
+  UNIQUE KEY `uk_customer_username` (`ten_dang_nhap`),
+  UNIQUE KEY `uk_customer_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `Warehouse` (
-  `WarehouseId` INT NOT NULL AUTO_INCREMENT,
-  `WarehouseName` VARCHAR(255) NOT NULL,
-  `Address` VARCHAR(255),
-  `Area` FLOAT,
-  `RentalPrice` DECIMAL(18,2) NOT NULL DEFAULT 0.00,
-  `Status` ENUM('Active', 'Maintenance', 'Inactive') NOT NULL,
-  `AdminId` INT NOT NULL,
-  PRIMARY KEY (`WarehouseId`),
-  KEY `idx_warehouse_admin_id` (`AdminId`),
+CREATE TABLE `kho` (
+  `ma_kho` INT NOT NULL AUTO_INCREMENT,
+  `ten_kho` VARCHAR(255) NOT NULL,
+  `dia_chi` VARCHAR(255),
+  `dien_tich` FLOAT,
+  `gia_thue` DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  `trang_thai` ENUM('Active', 'Maintenance', 'Inactive') NOT NULL,
+  `ma_quan_tri_vien` INT NOT NULL,
+  PRIMARY KEY (`ma_kho`),
+  KEY `idx_warehouse_admin_id` (`ma_quan_tri_vien`),
   CONSTRAINT `fk_warehouse_admin`
-    FOREIGN KEY (`AdminId`) REFERENCES `Admin` (`AdminId`)
+    FOREIGN KEY (`ma_quan_tri_vien`) REFERENCES `quan_tri_vien` (`ma_quan_tri_vien`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `LeaseContract` (
-  `ContractId` INT NOT NULL AUTO_INCREMENT,
-  `CustomerId` INT NOT NULL,
-  `WarehouseId` INT NOT NULL,
-  `StartDate` DATE NOT NULL,
-  `EndDate` DATE NOT NULL,
-  `RentalPrice` DECIMAL(18,2) NOT NULL,
-  `Status` ENUM('Pending', 'Active', 'Expired', 'Cancelled') NOT NULL,
-  `Purpose` VARCHAR(255),
-  `CreatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`ContractId`),
-  KEY `idx_lease_customer_id` (`CustomerId`),
-  KEY `idx_lease_warehouse_id` (`WarehouseId`),
+CREATE TABLE `hop_dong_thue` (
+  `ma_hop_dong` INT NOT NULL AUTO_INCREMENT,
+  `ma_khach_hang` INT NOT NULL,
+  `ma_kho` INT NOT NULL,
+  `ngay_bat_dau` DATE NOT NULL,
+  `ngay_ket_thuc` DATE NOT NULL,
+  `gia_thue` DECIMAL(18,2) NOT NULL,
+  `trang_thai` ENUM('Pending', 'Active', 'Expired', 'Cancelled') NOT NULL,
+  `muc_dich` VARCHAR(255),
+  `tao_luc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ma_hop_dong`),
+  KEY `idx_lease_customer_id` (`ma_khach_hang`),
+  KEY `idx_lease_warehouse_id` (`ma_kho`),
   CONSTRAINT `fk_lease_customer`
-    FOREIGN KEY (`CustomerId`) REFERENCES `Customer` (`CustomerId`)
+    FOREIGN KEY (`ma_khach_hang`) REFERENCES `khach_hang` (`ma_khach_hang`)
     ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `fk_lease_warehouse`
-    FOREIGN KEY (`WarehouseId`) REFERENCES `Warehouse` (`WarehouseId`)
+    FOREIGN KEY (`ma_kho`) REFERENCES `kho` (`ma_kho`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `WarehouseRentalRequest` (
-  `RequestId` INT NOT NULL AUTO_INCREMENT,
-  `CustomerId` INT NOT NULL,
-  `WarehouseId` INT NOT NULL,
-  `StartDate` DATE NOT NULL,
-  `EndDate` DATE NOT NULL,
-  `RentalPrice` DECIMAL(18,2) NOT NULL,
-  `Purpose` VARCHAR(255),
-  `Status` ENUM('Pending', 'Approved', 'Rejected') NOT NULL,
-  `ReviewNote` VARCHAR(255),
-  `ContractId` INT,
-  `CreatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `ReviewedAt` DATETIME,
-  PRIMARY KEY (`RequestId`),
-  KEY `idx_rental_request_customer_id` (`CustomerId`),
-  KEY `idx_rental_request_warehouse_id` (`WarehouseId`),
-  UNIQUE KEY `uk_rental_request_contract_id` (`ContractId`),
+CREATE TABLE `yeu_cau_thue_kho` (
+  `ma_yeu_cau` INT NOT NULL AUTO_INCREMENT,
+  `ma_khach_hang` INT NOT NULL,
+  `ma_kho` INT NOT NULL,
+  `ngay_bat_dau` DATE NOT NULL,
+  `ngay_ket_thuc` DATE NOT NULL,
+  `gia_thue` DECIMAL(18,2) NOT NULL,
+  `muc_dich` VARCHAR(255),
+  `trang_thai` ENUM('Pending', 'Approved', 'Rejected') NOT NULL,
+  `ghi_chu_duyet` VARCHAR(255),
+  `ma_hop_dong` INT,
+  `tao_luc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `duyet_luc` DATETIME,
+  PRIMARY KEY (`ma_yeu_cau`),
+  KEY `idx_rental_request_customer_id` (`ma_khach_hang`),
+  KEY `idx_rental_request_warehouse_id` (`ma_kho`),
+  UNIQUE KEY `uk_rental_request_contract_id` (`ma_hop_dong`),
   CONSTRAINT `fk_rental_request_customer`
-    FOREIGN KEY (`CustomerId`) REFERENCES `Customer` (`CustomerId`)
+    FOREIGN KEY (`ma_khach_hang`) REFERENCES `khach_hang` (`ma_khach_hang`)
     ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `fk_rental_request_warehouse`
-    FOREIGN KEY (`WarehouseId`) REFERENCES `Warehouse` (`WarehouseId`)
+    FOREIGN KEY (`ma_kho`) REFERENCES `kho` (`ma_kho`)
     ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `fk_rental_request_contract`
-    FOREIGN KEY (`ContractId`) REFERENCES `LeaseContract` (`ContractId`)
+    FOREIGN KEY (`ma_hop_dong`) REFERENCES `hop_dong_thue` (`ma_hop_dong`)
     ON UPDATE RESTRICT ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `Buyer` (
-  `BuyerId` INT NOT NULL AUTO_INCREMENT,
-  `BuyerName` VARCHAR(255) NOT NULL,
-  `Email` VARCHAR(255),
-  `PhoneNumber` VARCHAR(30),
-  `Address` VARCHAR(255),
-  `CustomerId` INT NOT NULL,
-  `IsDeleted` BOOLEAN NOT NULL DEFAULT FALSE,
-  PRIMARY KEY (`BuyerId`),
-  KEY `idx_buyer_customer_id` (`CustomerId`),
+CREATE TABLE `nguoi_mua` (
+  `ma_nguoi_mua` INT NOT NULL AUTO_INCREMENT,
+  `ten_nguoi_mua` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255),
+  `so_dien_thoai` VARCHAR(30),
+  `dia_chi` VARCHAR(255),
+  `ma_khach_hang` INT NOT NULL,
+  `da_xoa` BOOLEAN NOT NULL DEFAULT FALSE,
+  PRIMARY KEY (`ma_nguoi_mua`),
+  KEY `idx_buyer_customer_id` (`ma_khach_hang`),
   CONSTRAINT `fk_buyer_customer`
-    FOREIGN KEY (`CustomerId`) REFERENCES `Customer` (`CustomerId`)
+    FOREIGN KEY (`ma_khach_hang`) REFERENCES `khach_hang` (`ma_khach_hang`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `Category` (
-  `CategoryId` INT NOT NULL AUTO_INCREMENT,
-  `CategoryName` VARCHAR(255) NOT NULL,
-  `CustomerId` INT NOT NULL,
-  `IsDeleted` BOOLEAN NOT NULL DEFAULT FALSE,
-  PRIMARY KEY (`CategoryId`),
-  KEY `idx_category_customer_id` (`CustomerId`),
+CREATE TABLE `danh_muc` (
+  `ma_danh_muc` INT NOT NULL AUTO_INCREMENT,
+  `ten_danh_muc` VARCHAR(255) NOT NULL,
+  `ma_khach_hang` INT NOT NULL,
+  `da_xoa` BOOLEAN NOT NULL DEFAULT FALSE,
+  PRIMARY KEY (`ma_danh_muc`),
+  KEY `idx_category_customer_id` (`ma_khach_hang`),
   CONSTRAINT `fk_category_customer`
-    FOREIGN KEY (`CustomerId`) REFERENCES `Customer` (`CustomerId`)
+    FOREIGN KEY (`ma_khach_hang`) REFERENCES `khach_hang` (`ma_khach_hang`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `Supplier` (
-  `SupplierId` INT NOT NULL AUTO_INCREMENT,
-  `SupplierName` VARCHAR(255) NOT NULL,
-  `PhoneNumber` VARCHAR(30),
-  `Address` VARCHAR(255),
-  `CustomerId` INT NOT NULL,
-  `IsDeleted` BOOLEAN NOT NULL DEFAULT FALSE,
-  PRIMARY KEY (`SupplierId`),
-  KEY `idx_supplier_customer_id` (`CustomerId`),
+CREATE TABLE `nha_cung_cap` (
+  `ma_nha_cung_cap` INT NOT NULL AUTO_INCREMENT,
+  `ten_nha_cung_cap` VARCHAR(255) NOT NULL,
+  `so_dien_thoai` VARCHAR(30),
+  `dia_chi` VARCHAR(255),
+  `ma_khach_hang` INT NOT NULL,
+  `da_xoa` BOOLEAN NOT NULL DEFAULT FALSE,
+  PRIMARY KEY (`ma_nha_cung_cap`),
+  KEY `idx_supplier_customer_id` (`ma_khach_hang`),
   CONSTRAINT `fk_supplier_customer`
-    FOREIGN KEY (`CustomerId`) REFERENCES `Customer` (`CustomerId`)
+    FOREIGN KEY (`ma_khach_hang`) REFERENCES `khach_hang` (`ma_khach_hang`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `Product` (
-  `ProductId` INT NOT NULL AUTO_INCREMENT,
-  `ProductName` VARCHAR(255) NOT NULL,
-  `CurrentPrice` DECIMAL(18,2) NOT NULL,
-  `UnitOfMeasure` VARCHAR(100) NOT NULL,
-  `CustomerId` INT NOT NULL,
-  `CategoryId` INT NOT NULL,
-  `IsDeleted` BOOLEAN NOT NULL DEFAULT FALSE,
-  PRIMARY KEY (`ProductId`),
-  KEY `idx_product_customer_id` (`CustomerId`),
-  KEY `idx_product_category_id` (`CategoryId`),
+CREATE TABLE `san_pham` (
+  `ma_san_pham` INT NOT NULL AUTO_INCREMENT,
+  `ten_san_pham` VARCHAR(255) NOT NULL,
+  `gia_hien_tai` DECIMAL(18,2) NOT NULL,
+  `don_vi_tinh` VARCHAR(100) NOT NULL,
+  `ma_khach_hang` INT NOT NULL,
+  `ma_danh_muc` INT NOT NULL,
+  `da_xoa` BOOLEAN NOT NULL DEFAULT FALSE,
+  PRIMARY KEY (`ma_san_pham`),
+  KEY `idx_product_customer_id` (`ma_khach_hang`),
+  KEY `idx_product_category_id` (`ma_danh_muc`),
   CONSTRAINT `fk_product_customer`
-    FOREIGN KEY (`CustomerId`) REFERENCES `Customer` (`CustomerId`)
+    FOREIGN KEY (`ma_khach_hang`) REFERENCES `khach_hang` (`ma_khach_hang`)
     ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `fk_product_category`
-    FOREIGN KEY (`CategoryId`) REFERENCES `Category` (`CategoryId`)
+    FOREIGN KEY (`ma_danh_muc`) REFERENCES `danh_muc` (`ma_danh_muc`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `Inventory` (
-  `WarehouseId` INT NOT NULL,
-  `ProductId` INT NOT NULL,
-  `BatchNo` VARCHAR(100) NOT NULL,
-  `Quantity` INT NOT NULL,
-  `LastUpdated` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`WarehouseId`, `ProductId`, `BatchNo`),
-  KEY `idx_inventory_product_id` (`ProductId`),
+CREATE TABLE `ton_kho` (
+  `ma_kho` INT NOT NULL,
+  `ma_san_pham` INT NOT NULL,
+  `so_lo` VARCHAR(100) NOT NULL,
+  `so_luong` INT NOT NULL,
+  `cap_nhat_luc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ma_kho`, `ma_san_pham`, `so_lo`),
+  KEY `idx_inventory_product_id` (`ma_san_pham`),
   CONSTRAINT `fk_inventory_warehouse`
-    FOREIGN KEY (`WarehouseId`) REFERENCES `Warehouse` (`WarehouseId`)
+    FOREIGN KEY (`ma_kho`) REFERENCES `kho` (`ma_kho`)
     ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `fk_inventory_product`
-    FOREIGN KEY (`ProductId`) REFERENCES `Product` (`ProductId`)
+    FOREIGN KEY (`ma_san_pham`) REFERENCES `san_pham` (`ma_san_pham`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `InboundReceipt` (
-  `ReceiptId` INT NOT NULL AUTO_INCREMENT,
-  `WarehouseId` INT NOT NULL,
-  `SupplierId` INT NOT NULL,
-  `ReceiptDate` DATETIME NOT NULL,
-  `Status` ENUM('Draft', 'Completed', 'Cancelled') NOT NULL,
-  `CreatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`ReceiptId`),
-  KEY `idx_inbound_warehouse_id` (`WarehouseId`),
-  KEY `idx_inbound_supplier_id` (`SupplierId`),
+CREATE TABLE `phieu_nhap` (
+  `ma_phieu_nhap` INT NOT NULL AUTO_INCREMENT,
+  `ma_kho` INT NOT NULL,
+  `ma_nha_cung_cap` INT NOT NULL,
+  `ngay_nhap` DATETIME NOT NULL,
+  `trang_thai` ENUM('Draft', 'Completed', 'Cancelled') NOT NULL,
+  `tao_luc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ma_phieu_nhap`),
+  KEY `idx_inbound_warehouse_id` (`ma_kho`),
+  KEY `idx_inbound_supplier_id` (`ma_nha_cung_cap`),
   CONSTRAINT `fk_inbound_warehouse`
-    FOREIGN KEY (`WarehouseId`) REFERENCES `Warehouse` (`WarehouseId`)
+    FOREIGN KEY (`ma_kho`) REFERENCES `kho` (`ma_kho`)
     ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `fk_inbound_supplier`
-    FOREIGN KEY (`SupplierId`) REFERENCES `Supplier` (`SupplierId`)
+    FOREIGN KEY (`ma_nha_cung_cap`) REFERENCES `nha_cung_cap` (`ma_nha_cung_cap`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `InboundReceiptDetail` (
-  `ReceiptId` INT NOT NULL,
-  `ProductId` INT NOT NULL,
-  `BatchNo` VARCHAR(100) NOT NULL,
-  `Quantity` INT NOT NULL,
-  `ImportPrice` DECIMAL(18,2) NOT NULL,
-  `ExpiryDate` DATE,
-  PRIMARY KEY (`ReceiptId`, `ProductId`, `BatchNo`),
-  KEY `idx_inbound_detail_product_id` (`ProductId`),
+CREATE TABLE `chi_tiet_phieu_nhap` (
+  `ma_phieu_nhap` INT NOT NULL,
+  `ma_san_pham` INT NOT NULL,
+  `so_lo` VARCHAR(100) NOT NULL,
+  `so_luong` INT NOT NULL,
+  `gia_nhap` DECIMAL(18,2) NOT NULL,
+  `han_su_dung` DATE,
+  PRIMARY KEY (`ma_phieu_nhap`, `ma_san_pham`, `so_lo`),
+  KEY `idx_inbound_detail_product_id` (`ma_san_pham`),
   CONSTRAINT `fk_inbound_detail_receipt`
-    FOREIGN KEY (`ReceiptId`) REFERENCES `InboundReceipt` (`ReceiptId`)
+    FOREIGN KEY (`ma_phieu_nhap`) REFERENCES `phieu_nhap` (`ma_phieu_nhap`)
     ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `fk_inbound_detail_product`
-    FOREIGN KEY (`ProductId`) REFERENCES `Product` (`ProductId`)
+    FOREIGN KEY (`ma_san_pham`) REFERENCES `san_pham` (`ma_san_pham`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `OutboundIssue` (
-  `IssueId` INT NOT NULL AUTO_INCREMENT,
-  `WarehouseId` INT NOT NULL,
-  `BuyerId` INT NOT NULL,
-  `IssueDate` DATETIME NOT NULL,
-  `Status` ENUM('Draft', 'Completed', 'Cancelled') NOT NULL,
-  `CreatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`IssueId`),
-  KEY `idx_outbound_warehouse_id` (`WarehouseId`),
-  KEY `idx_outbound_buyer_id` (`BuyerId`),
+CREATE TABLE `phieu_xuat` (
+  `ma_phieu_xuat` INT NOT NULL AUTO_INCREMENT,
+  `ma_kho` INT NOT NULL,
+  `ma_nguoi_mua` INT NOT NULL,
+  `ngay_xuat` DATETIME NOT NULL,
+  `trang_thai` ENUM('Draft', 'Completed', 'Cancelled') NOT NULL,
+  `tao_luc` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`ma_phieu_xuat`),
+  KEY `idx_outbound_warehouse_id` (`ma_kho`),
+  KEY `idx_outbound_buyer_id` (`ma_nguoi_mua`),
   CONSTRAINT `fk_outbound_warehouse`
-    FOREIGN KEY (`WarehouseId`) REFERENCES `Warehouse` (`WarehouseId`)
+    FOREIGN KEY (`ma_kho`) REFERENCES `kho` (`ma_kho`)
     ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `fk_outbound_buyer`
-    FOREIGN KEY (`BuyerId`) REFERENCES `Buyer` (`BuyerId`)
+    FOREIGN KEY (`ma_nguoi_mua`) REFERENCES `nguoi_mua` (`ma_nguoi_mua`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `OutboundIssueDetail` (
-  `IssueId` INT NOT NULL,
-  `ProductId` INT NOT NULL,
-  `BatchNo` VARCHAR(100) NOT NULL,
-  `Quantity` INT NOT NULL,
-  `SellingPrice` DECIMAL(18,2) NOT NULL,
-  PRIMARY KEY (`IssueId`, `ProductId`, `BatchNo`),
-  KEY `idx_outbound_detail_product_id` (`ProductId`),
+CREATE TABLE `chi_tiet_phieu_xuat` (
+  `ma_phieu_xuat` INT NOT NULL,
+  `ma_san_pham` INT NOT NULL,
+  `so_lo` VARCHAR(100) NOT NULL,
+  `so_luong` INT NOT NULL,
+  `gia_ban` DECIMAL(18,2) NOT NULL,
+  PRIMARY KEY (`ma_phieu_xuat`, `ma_san_pham`, `so_lo`),
+  KEY `idx_outbound_detail_product_id` (`ma_san_pham`),
   CONSTRAINT `fk_outbound_detail_issue`
-    FOREIGN KEY (`IssueId`) REFERENCES `OutboundIssue` (`IssueId`)
+    FOREIGN KEY (`ma_phieu_xuat`) REFERENCES `phieu_xuat` (`ma_phieu_xuat`)
     ON UPDATE RESTRICT ON DELETE RESTRICT,
   CONSTRAINT `fk_outbound_detail_product`
-    FOREIGN KEY (`ProductId`) REFERENCES `Product` (`ProductId`)
+    FOREIGN KEY (`ma_san_pham`) REFERENCES `san_pham` (`ma_san_pham`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+
+

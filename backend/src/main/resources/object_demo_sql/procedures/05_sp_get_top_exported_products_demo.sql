@@ -1,16 +1,18 @@
--- DEMO OBJECT: PROCEDURE sp_get_top_exported_products
+-- DEMO OBJECT: PROCEDURE procedure_lay_san_pham_xuat_nhieu_nhat
 -- Expected on clean sample:
--- - 1 row for product 9701
--- - total_quantity_exported = 30
--- - total_revenue = 15600000.00
+-- - 1 row for san_pham 9701
+-- - tong_so_luong_xuat = 30
+-- - tong_doanh_thu = 15600000.00
 
 USE warehouse_db;
 
-SET @customer_id = (
-  SELECT customer_id
-  FROM customer
-  WHERE user_name = 'customer1@gmail.com'
+SET @ma_khach_hang = (
+  SELECT ma_khach_hang
+  FROM khach_hang
+  WHERE ten_dang_nhap = 'customer1@gmail.com'
   LIMIT 1
 );
 
-CALL sp_get_top_exported_products(@customer_id, 2026, 4, 5);
+CALL procedure_lay_san_pham_xuat_nhieu_nhat(@ma_khach_hang, 2026, 4, 5);
+
+

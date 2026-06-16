@@ -21,7 +21,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "Warehouse")
+@Table(name = "kho")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -31,27 +31,28 @@ public class Warehouse {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "WarehouseId")
+    @Column(name = "ma_kho")
     private Integer warehouseId;
 
-    @Column(name = "WarehouseName", nullable = false)
+    @Column(name = "ten_kho", nullable = false)
     private String warehouseName;
 
-    @Column(name = "Address")
+    @Column(name = "dia_chi")
     private String address;
 
-    @Column(name = "Area")
+    @Column(name = "dien_tich")
     private Float area;
 
-    @Column(name = "RentalPrice", precision = 18, scale = 2)
+    @Column(name = "gia_thue", precision = 18, scale = 2)
     private BigDecimal rentalPrice;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "Status", nullable = false)
+    @Column(name = "trang_thai", nullable = false)
     private WarehouseStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "AdminId", nullable = false)
+    @JoinColumn(name = "ma_quan_tri_vien", nullable = false)
     private Admin admin;
 }
+
 

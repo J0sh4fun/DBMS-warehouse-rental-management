@@ -18,7 +18,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "Product")
+@Table(name = "san_pham")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -28,27 +28,28 @@ public class Product {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ProductId")
+    @Column(name = "ma_san_pham")
     private Integer productId;
 
-    @Column(name = "ProductName", nullable = false)
+    @Column(name = "ten_san_pham", nullable = false)
     private String productName;
 
-    @Column(name = "CurrentPrice", nullable = false, precision = 18, scale = 2)
+    @Column(name = "gia_hien_tai", nullable = false, precision = 18, scale = 2)
     private BigDecimal currentPrice;
 
-    @Column(name = "UnitOfMeasure", nullable = false, length = 100)
+    @Column(name = "don_vi_tinh", nullable = false, length = 100)
     private String unitOfMeasure;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "CustomerId", nullable = false)
+    @JoinColumn(name = "ma_khach_hang", nullable = false)
     private Customer customer;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "CategoryId", nullable = false)
+    @JoinColumn(name = "ma_danh_muc", nullable = false)
     private Category category;
 
-    @Column(name = "IsDeleted", nullable = false)
+    @Column(name = "da_xoa", nullable = false)
     private boolean isDeleted;
 }
+
 

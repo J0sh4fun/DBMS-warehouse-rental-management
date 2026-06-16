@@ -1,6 +1,6 @@
--- DEMO OBJECT: PROCEDURE sp_expire_lease_contracts
+-- DEMO OBJECT: PROCEDURE procedure_cap_nhat_hop_dong_thue_het_han
 -- Expected on clean sample:
--- - expired_contracts = 0
+-- - so_hop_dong_het_han = 0
 -- Why:
 -- - contract 9201 is still Active and not expired yet
 -- - contract 9202 is already Expired
@@ -9,17 +9,19 @@
 USE warehouse_db;
 
 SELECT
-  contract_id,
-  status,
-  start_date,
-  end_date,
+  ma_hop_dong,
+  trang_thai,
+  ngay_bat_dau,
+  ngay_ket_thuc,
   CASE
-    WHEN end_date < CURDATE()
-     AND status IN ('Pending', 'Active')
+    WHEN ngay_ket_thuc < CURDATE()
+     AND trang_thai IN ('Pending', 'Active')
     THEN 'will be updated by procedure'
     ELSE 'not affected'
   END AS procedure_effect
-FROM lease_contract
-ORDER BY contract_id;
+FROM hop_dong_thue
+ORDER BY ma_hop_dong;
 
-CALL sp_expire_lease_contracts();
+CALL procedure_cap_nhat_hop_dong_thue_het_han();
+
+

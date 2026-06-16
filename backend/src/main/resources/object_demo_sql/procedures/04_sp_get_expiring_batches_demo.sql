@@ -1,16 +1,18 @@
--- DEMO OBJECT: PROCEDURE sp_get_expiring_batches
+-- DEMO OBJECT: PROCEDURE procedure_lay_lo_hang_sap_het_han
 -- Expected on clean sample:
 -- - At least batch BUTTER-APR26 should appear
--- - customer_id should belong to customer1@gmail.com
--- - days_until_expiry should be between 0 and 180
+-- - ma_khach_hang should belong to customer1@gmail.com
+-- - so_ngay_con_lai should be between 0 and 180
 
 USE warehouse_db;
 
-SET @customer_id = (
-  SELECT customer_id
-  FROM customer
-  WHERE user_name = 'customer1@gmail.com'
+SET @ma_khach_hang = (
+  SELECT ma_khach_hang
+  FROM khach_hang
+  WHERE ten_dang_nhap = 'customer1@gmail.com'
   LIMIT 1
 );
 
-CALL sp_get_expiring_batches(@customer_id, 180);
+CALL procedure_lay_lo_hang_sap_het_han(@ma_khach_hang, 180);
+
+

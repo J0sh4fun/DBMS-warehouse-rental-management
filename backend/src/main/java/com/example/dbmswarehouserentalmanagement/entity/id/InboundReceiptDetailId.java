@@ -18,13 +18,14 @@ import java.io.Serializable;
 @EqualsAndHashCode
 public class InboundReceiptDetailId implements Serializable {
 
-    @Column(name = "ReceiptId", nullable = false)
+    @Column(name = "ma_phieu_nhap", nullable = false)
     private Integer receiptId;
 
-    @Column(name = "ProductId", nullable = false)
+    @Column(name = "ma_san_pham", nullable = false)
     private Integer productId;
 
-    @Column(name = "BatchNo", nullable = false, length = 100)
+    @Column(name = "so_lo", nullable = false, length = 100)
     private String batchNo;
 }
+
 

@@ -1,15 +1,17 @@
--- DEMO OBJECT: PROCEDURE sp_get_customer_inventory_value
+-- DEMO OBJECT: PROCEDURE procedure_lay_gia_tri_ton_kho_khach_hang
 -- Expected on clean sample:
--- - @customer_id resolves to customer1@gmail.com
--- - total_inventory_value should be 63000000.00
+-- - @ma_khach_hang resolves to customer1@gmail.com
+-- - tong_gia_tri_ton_kho should be 63000000.00
 
 USE warehouse_db;
 
-SET @customer_id = (
-  SELECT customer_id
-  FROM customer
-  WHERE user_name = 'customer1@gmail.com'
+SET @ma_khach_hang = (
+  SELECT ma_khach_hang
+  FROM khach_hang
+  WHERE ten_dang_nhap = 'customer1@gmail.com'
   LIMIT 1
 );
 
-CALL sp_get_customer_inventory_value(@customer_id);
+CALL procedure_lay_gia_tri_ton_kho_khach_hang(@ma_khach_hang);
+
+

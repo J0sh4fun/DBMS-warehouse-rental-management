@@ -18,7 +18,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "InboundReceiptDetail")
+@Table(name = "chi_tiet_phieu_nhap")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,20 +30,21 @@ public class InboundReceiptDetail {
     private InboundReceiptDetailId id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ReceiptId", referencedColumnName = "ReceiptId", nullable = false, insertable = false, updatable = false)
+    @JoinColumn(name = "ma_phieu_nhap", referencedColumnName = "ma_phieu_nhap", nullable = false, insertable = false, updatable = false)
     private InboundReceipt inboundReceipt;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ProductId", referencedColumnName = "ProductId", nullable = false, insertable = false, updatable = false)
+    @JoinColumn(name = "ma_san_pham", referencedColumnName = "ma_san_pham", nullable = false, insertable = false, updatable = false)
     private Product product;
 
-    @Column(name = "Quantity", nullable = false)
+    @Column(name = "so_luong", nullable = false)
     private Integer quantity;
 
-    @Column(name = "ImportPrice", nullable = false, precision = 18, scale = 2)
+    @Column(name = "gia_nhap", nullable = false, precision = 18, scale = 2)
     private BigDecimal importPrice;
 
-    @Column(name = "ExpiryDate")
+    @Column(name = "han_su_dung")
     private LocalDate expiryDate;
 }
+
 

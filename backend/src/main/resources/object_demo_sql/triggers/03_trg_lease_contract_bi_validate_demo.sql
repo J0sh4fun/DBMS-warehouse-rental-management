@@ -1,16 +1,16 @@
--- DEMO OBJECT: TRIGGER trg_lease_contract_bi_validate
+-- DEMO OBJECT: TRIGGER trigger_kiem_tra_hop_dong_thue_truoc_khi_them
 -- Expected result:
 -- - The INSERT fails
--- - Expected error message: Lease contract end date must be on or after start date
+-- - Expected error message: Ngay ket thuc hop dong phai lon hon hoac bang ngay bat dau
 
 USE warehouse_db;
 
-INSERT INTO lease_contract (
-  contract_id, customer_id, warehouse_id, start_date, end_date,
-  rental_price, status, purpose, created_at
+INSERT INTO hop_dong_thue (
+  ma_hop_dong, ma_khach_hang, ma_kho, ngay_bat_dau, ngay_ket_thuc,
+  gia_thue, trang_thai, muc_dich, tao_luc
 ) VALUES (
   99901,
-  (SELECT customer_id FROM customer ORDER BY customer_id LIMIT 1),
+  (SELECT ma_khach_hang FROM khach_hang ORDER BY ma_khach_hang LIMIT 1),
   9101,
   '2026-12-31',
   '2026-01-01',
@@ -19,3 +19,5 @@ INSERT INTO lease_contract (
   'Trigger demo',
   NOW()
 );
+
+

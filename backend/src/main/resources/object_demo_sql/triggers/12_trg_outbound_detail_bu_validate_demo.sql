@@ -1,12 +1,15 @@
--- DEMO OBJECT: TRIGGER trg_outbound_detail_bu_validate
+-- DEMO OBJECT: TRIGGER trigger_kiem_tra_ct_phieu_xuat_truoc_khi_cap_nhat
 -- Expected result:
 -- - The UPDATE fails
--- - Expected error message: Outbound selling price cannot be negative
+-- - Expected error message: Gia ban khong duoc am
 
 USE warehouse_db;
 
-UPDATE outbound_issue_detail
-SET selling_price = -1
-WHERE issue_id = 9902
-  AND product_id = 9702
-  AND batch_no = 'BUTTER-APR26';
+UPDATE chi_tiet_phieu_xuat
+SET gia_ban = -1
+WHERE ma_phieu_xuat = 9902
+  AND ma_san_pham = 9702
+  AND so_lo = 'BUTTER-APR26';
+
+
+

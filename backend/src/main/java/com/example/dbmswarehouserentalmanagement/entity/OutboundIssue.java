@@ -21,7 +21,7 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "OutboundIssue")
+@Table(name = "phieu_xuat")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -31,25 +31,26 @@ public class OutboundIssue {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "IssueId")
+    @Column(name = "ma_phieu_xuat")
     private Integer issueId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "WarehouseId", nullable = false)
+    @JoinColumn(name = "ma_kho", nullable = false)
     private Warehouse warehouse;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "BuyerId", nullable = false)
+    @JoinColumn(name = "ma_nguoi_mua", nullable = false)
     private Buyer buyer;
 
-    @Column(name = "IssueDate", nullable = false)
+    @Column(name = "ngay_xuat", nullable = false)
     private LocalDateTime issueDate;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "Status", nullable = false)
+    @Column(name = "trang_thai", nullable = false)
     private IssueStatus status;
 
-    @Column(name = "CreatedAt", nullable = false)
+    @Column(name = "tao_luc", nullable = false)
     private LocalDateTime createdAt;
 }
+
 

@@ -1,15 +1,17 @@
--- DEMO OBJECT: FUNCTION fn_inventory_batch_value
+-- DEMO OBJECT: FUNCTION function_gia_tri_ton_kho_theo_lo
 -- Expected on clean sample:
--- - fn_value = 54000000.00
--- - manual_value must match fn_value
+-- - gia_tri_ham = 54000000.00
+-- - gia_tri_tu_tinh must match gia_tri_ham
 
 USE warehouse_db;
 
-SELECT fn_inventory_batch_value(9101, 9701, 'SPK-A-2026') AS fn_value;
+SELECT function_gia_tri_ton_kho_theo_lo(9101, 9701, 'SPK-A-2026') AS gia_tri_ham;
 
-SELECT i.quantity * p.current_price AS manual_value
-FROM inventory i
-JOIN product p ON p.product_id = i.product_id
-WHERE i.warehouse_id = 9101
-  AND i.product_id = 9701
-  AND i.batch_no = 'SPK-A-2026';
+SELECT i.so_luong * p.gia_hien_tai AS gia_tri_tu_tinh
+FROM ton_kho i
+JOIN san_pham p ON p.ma_san_pham = i.ma_san_pham
+WHERE i.ma_kho = 9101
+  AND i.ma_san_pham = 9701
+  AND i.so_lo = 'SPK-A-2026';
+
+

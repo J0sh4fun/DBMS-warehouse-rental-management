@@ -1,20 +1,22 @@
--- DEMO OBJECT: TRIGGER trg_lease_contract_bu_validate
+-- DEMO OBJECT: TRIGGER trigger_kiem_tra_hop_dong_thue_truoc_khi_cap_nhat
 -- Safe demo script: changes are rolled back at the end.
 -- Expected result inside the transaction:
--- - contract 9201 status becomes Expired automatically
--- - This shows the trigger auto-fixes Pending/Active contracts that are already past end_date
+-- - contract 9201 trang_thai becomes Expired automatically
+-- - This shows the trigger auto-fixes Pending/Active contracts that are already past ngay_ket_thuc
 
 USE warehouse_db;
 
 START TRANSACTION;
 
-UPDATE lease_contract
-SET status = 'Active',
-    end_date = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
-WHERE contract_id = 9201;
+UPDATE hop_dong_thue
+SET trang_thai = 'Active',
+    ngay_ket_thuc = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+WHERE ma_hop_dong = 9201;
 
-SELECT contract_id, status, start_date, end_date
-FROM lease_contract
-WHERE contract_id = 9201;
+SELECT ma_hop_dong, trang_thai, ngay_bat_dau, ngay_ket_thuc
+FROM hop_dong_thue
+WHERE ma_hop_dong = 9201;
 
 ROLLBACK;
+
+

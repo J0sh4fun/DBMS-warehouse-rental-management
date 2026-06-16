@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "Buyer")
+@Table(name = "nguoi_mua")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -26,26 +26,27 @@ public class Buyer {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "BuyerId")
+    @Column(name = "ma_nguoi_mua")
     private Integer buyerId;
 
-    @Column(name = "BuyerName", nullable = false)
+    @Column(name = "ten_nguoi_mua", nullable = false)
     private String buyerName;
 
-    @Column(name = "Email")
+    @Column(name = "email")
     private String email;
 
-    @Column(name = "PhoneNumber", length = 30)
+    @Column(name = "so_dien_thoai", length = 30)
     private String phoneNumber;
 
-    @Column(name = "Address")
+    @Column(name = "dia_chi")
     private String address;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "CustomerId", nullable = false)
+    @JoinColumn(name = "ma_khach_hang", nullable = false)
     private Customer customer;
 
-    @Column(name = "IsDeleted", nullable = false)
+    @Column(name = "da_xoa", nullable = false)
     private boolean isDeleted;
 }
+
 

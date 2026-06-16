@@ -14,7 +14,7 @@
 --
 -- Suggested order for a smooth live demo:
 -- 1. views/01_vw_current_tenants_demo.sql
--- 2. functions/02_fn_customer_inventory_value_demo.sql
+-- 2. functions/02_fn_gia_tri_ton_kho_khach_hang_demo.sql
 -- 3. procedures/02_sp_get_current_tenants_by_admin_demo.sql
 -- 4. procedures/06_sp_complete_inbound_receipt_demo.sql
 -- 5. procedures/07_sp_complete_outbound_issue_demo.sql
@@ -22,3 +22,4 @@
 -- Current sample accounts:
 -- - admin1@gmail.com / 12345678
 -- - customer1@gmail.com / 12345678
+

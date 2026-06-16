@@ -1,17 +1,19 @@
--- DEMO OBJECT: TRIGGER trg_product_bi_validate
+-- DEMO OBJECT: TRIGGER trigger_kiem_tra_san_pham_truoc_khi_them
 -- Expected result:
 -- - The INSERT fails
--- - Expected error message: Product name is required
--- - If you fix the name, unit_of_measure and current_price are checked next
+-- - Expected error message: san_pham name is required
+-- - If you fix the name, don_vi_tinh and gia_hien_tai are checked next
 
 USE warehouse_db;
 
-INSERT INTO product (
-  product_id, product_name, current_price, unit_of_measure,
-  customer_id, category_id, is_deleted
+INSERT INTO san_pham (
+  ma_san_pham, ten_san_pham, gia_hien_tai, don_vi_tinh,
+  ma_khach_hang, ma_danh_muc, da_xoa
 ) VALUES (
   99901, '   ', -1, '   ',
-  (SELECT customer_id FROM customer WHERE user_name = 'customer1@gmail.com' LIMIT 1),
+  (SELECT ma_khach_hang FROM khach_hang WHERE ten_dang_nhap = 'customer1@gmail.com' LIMIT 1),
   9401,
   FALSE
 );
+
+

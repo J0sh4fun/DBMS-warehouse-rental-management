@@ -1,8 +1,8 @@
--- DEMO OBJECT: PROCEDURE sp_complete_inbound_receipt
+-- DEMO OBJECT: PROCEDURE procedure_hoan_tat_phieu_nhap
 -- Safe demo script: changes are rolled back at the end.
 -- Expected inside the transaction:
 -- - receipt 9802 becomes Completed
--- - inventory batch SPK-DRAFT-2026 appears with quantity 20
+-- - ton_kho batch SPK-DRAFT-2026 appears with so_luong 20
 -- Assumption:
 -- - sample_data.sql still keeps receipt 9802 in Draft before you run this script
 
@@ -10,30 +10,32 @@ USE warehouse_db;
 
 START TRANSACTION;
 
-SELECT receipt_id, status
-FROM inbound_receipt
-WHERE receipt_id = 9802;
+SELECT ma_phieu_nhap, trang_thai
+FROM phieu_nhap
+WHERE ma_phieu_nhap = 9802;
 
 SELECT COALESCE((
-  SELECT quantity
-  FROM inventory
-  WHERE warehouse_id = 9101
-    AND product_id = 9701
-    AND batch_no = 'SPK-DRAFT-2026'
+  SELECT so_luong
+  FROM ton_kho
+  WHERE ma_kho = 9101
+    AND ma_san_pham = 9701
+    AND so_lo = 'SPK-DRAFT-2026'
 ), 0) AS draft_batch_qty_before;
 
-CALL sp_complete_inbound_receipt(9802);
+CALL procedure_hoan_tat_phieu_nhap(9802);
 
-SELECT receipt_id, status
-FROM inbound_receipt
-WHERE receipt_id = 9802;
+SELECT ma_phieu_nhap, trang_thai
+FROM phieu_nhap
+WHERE ma_phieu_nhap = 9802;
 
 SELECT COALESCE((
-  SELECT quantity
-  FROM inventory
-  WHERE warehouse_id = 9101
-    AND product_id = 9701
-    AND batch_no = 'SPK-DRAFT-2026'
+  SELECT so_luong
+  FROM ton_kho
+  WHERE ma_kho = 9101
+    AND ma_san_pham = 9701
+    AND so_lo = 'SPK-DRAFT-2026'
 ), 0) AS draft_batch_qty_after;
 
 ROLLBACK;
+
+

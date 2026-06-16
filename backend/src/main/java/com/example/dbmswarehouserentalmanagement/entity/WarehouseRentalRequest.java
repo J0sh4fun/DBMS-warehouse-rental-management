@@ -24,7 +24,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "WarehouseRentalRequest")
+@Table(name = "yeu_cau_thue_kho")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -34,43 +34,44 @@ public class WarehouseRentalRequest {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "RequestId")
+    @Column(name = "ma_yeu_cau")
     private Integer requestId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "CustomerId", nullable = false)
+    @JoinColumn(name = "ma_khach_hang", nullable = false)
     private Customer customer;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "WarehouseId", nullable = false)
+    @JoinColumn(name = "ma_kho", nullable = false)
     private Warehouse warehouse;
 
-    @Column(name = "StartDate", nullable = false)
+    @Column(name = "ngay_bat_dau", nullable = false)
     private LocalDate startDate;
 
-    @Column(name = "EndDate", nullable = false)
+    @Column(name = "ngay_ket_thuc", nullable = false)
     private LocalDate endDate;
 
-    @Column(name = "RentalPrice", nullable = false, precision = 18, scale = 2)
+    @Column(name = "gia_thue", nullable = false, precision = 18, scale = 2)
     private BigDecimal rentalPrice;
 
-    @Column(name = "Purpose")
+    @Column(name = "muc_dich")
     private String purpose;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "Status", nullable = false)
+    @Column(name = "trang_thai", nullable = false)
     private RentalRequestStatus status;
 
-    @Column(name = "ReviewNote")
+    @Column(name = "ghi_chu_duyet")
     private String reviewNote;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ContractId")
+    @JoinColumn(name = "ma_hop_dong")
     private LeaseContract contract;
 
-    @Column(name = "CreatedAt", nullable = false)
+    @Column(name = "tao_luc", nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "ReviewedAt")
+    @Column(name = "duyet_luc")
     private LocalDateTime reviewedAt;
 }
+

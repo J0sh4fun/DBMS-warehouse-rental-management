@@ -16,9 +16,9 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "Admin", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_admin_username", columnNames = "UserName"),
-        @UniqueConstraint(name = "uk_admin_email", columnNames = "Email")
+@Table(name = "quan_tri_vien", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_admin_username", columnNames = "ten_dang_nhap"),
+        @UniqueConstraint(name = "uk_admin_email", columnNames = "email")
 })
 @Getter
 @Setter
@@ -29,22 +29,23 @@ public class Admin {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "AdminId")
+    @Column(name = "ma_quan_tri_vien")
     private Integer adminId;
 
-    @Column(name = "AdminName", nullable = false)
+    @Column(name = "ten_quan_tri_vien", nullable = false)
     private String adminName;
 
-    @Column(name = "UserName", nullable = false, length = 100)
+    @Column(name = "ten_dang_nhap", nullable = false, length = 100)
     private String userName;
 
-    @Column(name = "Email", nullable = false)
+    @Column(name = "email", nullable = false)
     private String email;
 
-    @Column(name = "Password", nullable = false)
+    @Column(name = "mat_khau", nullable = false)
     private String password;
 
-    @Column(name = "CreatedAt", nullable = false)
+    @Column(name = "tao_luc", nullable = false)
     private LocalDateTime createdAt;
 }
+
 

@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "Supplier")
+@Table(name = "nha_cung_cap")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -26,23 +26,24 @@ public class Supplier {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "SupplierId")
+    @Column(name = "ma_nha_cung_cap")
     private Integer supplierId;
 
-    @Column(name = "SupplierName", nullable = false)
+    @Column(name = "ten_nha_cung_cap", nullable = false)
     private String supplierName;
 
-    @Column(name = "PhoneNumber", length = 30)
+    @Column(name = "so_dien_thoai", length = 30)
     private String phoneNumber;
 
-    @Column(name = "Address")
+    @Column(name = "dia_chi")
     private String address;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "CustomerId", nullable = false)
+    @JoinColumn(name = "ma_khach_hang", nullable = false)
     private Customer customer;
 
-    @Column(name = "IsDeleted", nullable = false)
+    @Column(name = "da_xoa", nullable = false)
     private boolean isDeleted;
 }
+
 

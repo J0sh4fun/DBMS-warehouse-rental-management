@@ -17,7 +17,7 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "Inventory")
+@Table(name = "ton_kho")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -29,17 +29,18 @@ public class Inventory {
     private InventoryId id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "WarehouseId", referencedColumnName = "WarehouseId", nullable = false, insertable = false, updatable = false)
+    @JoinColumn(name = "ma_kho", referencedColumnName = "ma_kho", nullable = false, insertable = false, updatable = false)
     private Warehouse warehouse;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ProductId", referencedColumnName = "ProductId", nullable = false, insertable = false, updatable = false)
+    @JoinColumn(name = "ma_san_pham", referencedColumnName = "ma_san_pham", nullable = false, insertable = false, updatable = false)
     private Product product;
 
-    @Column(name = "Quantity", nullable = false)
+    @Column(name = "so_luong", nullable = false)
     private Integer quantity;
 
-    @Column(name = "LastUpdated", nullable = false)
+    @Column(name = "cap_nhat_luc", nullable = false)
     private LocalDateTime lastUpdated;
 }
+
 

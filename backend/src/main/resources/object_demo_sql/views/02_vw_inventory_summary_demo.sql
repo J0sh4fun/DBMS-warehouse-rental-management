@@ -1,12 +1,14 @@
--- DEMO OBJECT: VIEW vw_inventory_summary
+-- DEMO OBJECT: VIEW view_tong_hop_ton_kho
 -- Expected on clean sample:
--- - Product 9701 in warehouse 9101 has total_quantity = 120
--- - Product 9701 total_inventory_value = 54000000.00
--- - Product 9702 in warehouse 9101 has total_quantity = 75
--- - Product 9702 total_inventory_value = 9000000.00
+-- - san_pham 9701 in kho 9101 has tong_so_luong = 120
+-- - san_pham 9701 tong_gia_tri_ton_kho = 54000000.00
+-- - san_pham 9702 in kho 9101 has tong_so_luong = 75
+-- - san_pham 9702 tong_gia_tri_ton_kho = 9000000.00
 
 USE warehouse_db;
 
 SELECT *
-FROM vw_inventory_summary
-ORDER BY total_inventory_value DESC, warehouse_id, product_id;
+FROM view_tong_hop_ton_kho
+ORDER BY tong_gia_tri_ton_kho DESC, ma_kho, ma_san_pham;
+
+

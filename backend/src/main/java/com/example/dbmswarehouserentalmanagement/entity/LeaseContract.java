@@ -23,7 +23,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "LeaseContract")
+@Table(name = "hop_dong_thue")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -33,34 +33,35 @@ public class LeaseContract {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ContractId")
+    @Column(name = "ma_hop_dong")
     private Integer contractId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "CustomerId", nullable = false)
+    @JoinColumn(name = "ma_khach_hang", nullable = false)
     private Customer customer;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "WarehouseId", nullable = false)
+    @JoinColumn(name = "ma_kho", nullable = false)
     private Warehouse warehouse;
 
-    @Column(name = "StartDate", nullable = false)
+    @Column(name = "ngay_bat_dau", nullable = false)
     private LocalDate startDate;
 
-    @Column(name = "EndDate", nullable = false)
+    @Column(name = "ngay_ket_thuc", nullable = false)
     private LocalDate endDate;
 
-    @Column(name = "RentalPrice", nullable = false, precision = 18, scale = 2)
+    @Column(name = "gia_thue", nullable = false, precision = 18, scale = 2)
     private BigDecimal rentalPrice;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "Status", nullable = false)
+    @Column(name = "trang_thai", nullable = false)
     private LeaseContractStatus status;
 
-    @Column(name = "Purpose")
+    @Column(name = "muc_dich")
     private String purpose;
 
-    @Column(name = "CreatedAt", nullable = false)
+    @Column(name = "tao_luc", nullable = false)
     private LocalDateTime createdAt;
 }
+
 

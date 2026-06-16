@@ -1,11 +1,14 @@
--- DEMO OBJECT: VIEW vw_current_tenants
+-- DEMO OBJECT: VIEW view_khach_thue_hien_tai
 -- Expected on clean sample:
 -- - 1 row for customer1@gmail.com
--- - warehouse_id = 9101
--- - contract status is Active and still valid on CURDATE()
+-- - ma_kho = 9101
+-- - contract trang_thai is Active and still valid on CURDATE()
 
 USE warehouse_db;
 
 SELECT *
-FROM vw_current_tenants
-ORDER BY end_date, customer_name, warehouse_name;
+FROM view_khach_thue_hien_tai
+ORDER BY ngay_ket_thuc, ten_khach_hang, ten_kho;
+
+
+

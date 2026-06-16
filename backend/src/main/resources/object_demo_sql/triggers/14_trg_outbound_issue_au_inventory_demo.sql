@@ -1,8 +1,8 @@
--- DEMO OBJECT: TRIGGER trg_outbound_issue_au_inventory
+-- DEMO OBJECT: TRIGGER trigger_cap_nhat_ton_kho_sau_khi_cap_nhat_phieu_xuat
 -- Safe demo script: changes are rolled back at the end.
 -- Expected result inside the transaction:
 -- - issue 9902 changes from Draft to Completed
--- - inventory quantity of BUTTER-APR26 goes from 75 to 65
+-- - ton_kho so_luong of BUTTER-APR26 goes from 75 to 65
 -- Assumption:
 -- - sample_data.sql still keeps issue 9902 in Draft before you run this script
 
@@ -10,32 +10,34 @@ USE warehouse_db;
 
 START TRANSACTION;
 
-SELECT issue_id, status
-FROM outbound_issue
-WHERE issue_id = 9902;
+SELECT ma_phieu_xuat, trang_thai
+FROM phieu_xuat
+WHERE ma_phieu_xuat = 9902;
 
 SELECT COALESCE((
-  SELECT quantity
-  FROM inventory
-  WHERE warehouse_id = 9101
-    AND product_id = 9702
-    AND batch_no = 'BUTTER-APR26'
+  SELECT so_luong
+  FROM ton_kho
+  WHERE ma_kho = 9101
+    AND ma_san_pham = 9702
+    AND so_lo = 'BUTTER-APR26'
 ), 0) AS butter_qty_before;
 
-UPDATE outbound_issue
-SET status = 'Completed'
-WHERE issue_id = 9902;
+UPDATE phieu_xuat
+SET trang_thai = 'Completed'
+WHERE ma_phieu_xuat = 9902;
 
-SELECT issue_id, status
-FROM outbound_issue
-WHERE issue_id = 9902;
+SELECT ma_phieu_xuat, trang_thai
+FROM phieu_xuat
+WHERE ma_phieu_xuat = 9902;
 
 SELECT COALESCE((
-  SELECT quantity
-  FROM inventory
-  WHERE warehouse_id = 9101
-    AND product_id = 9702
-    AND batch_no = 'BUTTER-APR26'
+  SELECT so_luong
+  FROM ton_kho
+  WHERE ma_kho = 9101
+    AND ma_san_pham = 9702
+    AND so_lo = 'BUTTER-APR26'
 ), 0) AS butter_qty_after;
 
 ROLLBACK;
+
+

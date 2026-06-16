@@ -27,24 +27,24 @@ public class DbmsJdbcRepository {
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
     public void completeInboundReceipt(Integer receiptId) {
-        executeProcedure("{call sp_complete_inbound_receipt(?)}", statement -> statement.setInt(1, receiptId));
+        executeProcedure("{call procedure_hoan_tat_phieu_nhap(?)}", statement -> statement.setInt(1, receiptId));
     }
 
     public void completeOutboundIssue(Integer issueId) {
-        executeProcedure("{call sp_complete_outbound_issue(?)}", statement -> statement.setInt(1, issueId));
+        executeProcedure("{call procedure_hoan_tat_phieu_xuat(?)}", statement -> statement.setInt(1, issueId));
     }
 
     public int expireOverdueContracts() {
         return jdbcTemplate.execute((ConnectionCallback<Integer>) connection -> {
-            try (CallableStatement statement = connection.prepareCall("{call sp_expire_lease_contracts()}")) {
+            try (CallableStatement statement = connection.prepareCall("{call procedure_cap_nhat_hop_dong_thue_het_han()}")) {
                 boolean hasResults = statement.execute();
-                Integer expiredContracts = null;
+                Integer soHopDongHetHan = null;
 
                 while (true) {
                     if (hasResults) {
                         try (ResultSet resultSet = statement.getResultSet()) {
                             while (resultSet.next()) {
-                                expiredContracts = resultSet.getInt("expired_contracts");
+                                soHopDongHetHan = resultSet.getInt("so_hop_dong_het_han");
                             }
                         }
                     } else if (statement.getUpdateCount() == -1) {
@@ -53,18 +53,18 @@ public class DbmsJdbcRepository {
                     hasResults = statement.getMoreResults();
                 }
 
-                return expiredContracts == null ? 0 : expiredContracts;
+                return soHopDongHetHan == null ? 0 : soHopDongHetHan;
             }
         });
     }
 
     public BigDecimal findCustomerInventoryValue(Integer customerId) {
-        BigDecimal totalValue = jdbcTemplate.queryForObject(
-                "select fn_customer_inventory_value(?) as total_value",
-                (resultSet, rowNum) -> resultSet.getBigDecimal("total_value"),
+        BigDecimal tongGiaTri = jdbcTemplate.queryForObject(
+                "select function_gia_tri_ton_kho_cua_khach_hang(?) as tong_gia_tri",
+                (resultSet, rowNum) -> resultSet.getBigDecimal("tong_gia_tri"),
                 customerId
         );
-        return totalValue == null ? BigDecimal.ZERO : totalValue;
+        return tongGiaTri == null ? BigDecimal.ZERO : tongGiaTri;
     }
 
     public List<InventoryResponse> findInventory(
@@ -81,36 +81,36 @@ public class DbmsJdbcRepository {
 
         return namedParameterJdbcTemplate.query("""
                         select
-                          i.warehouse_id as WarehouseId,
-                          w.warehouse_name as WarehouseName,
-                          i.product_id as ProductId,
-                          p.product_name as ProductName,
-                          p.unit_of_measure as UnitOfMeasure,
-                          i.batch_no as BatchNo,
-                          i.quantity as Quantity,
-                          coalesce(fn_inventory_batch_value(i.warehouse_id, i.product_id, i.batch_no), 0) as BatchValue,
-                          i.last_updated as LastUpdated
-                        from inventory i
-                        join product p on p.product_id = i.product_id
-                        join warehouse w on w.warehouse_id = i.warehouse_id
-                        where p.customer_id = :customerId
-                          and p.is_deleted = false
-                          and (:warehouseId is null or i.warehouse_id = :warehouseId)
-                          and (:productId is null or i.product_id = :productId)
-                          and (:batchNo is null or i.batch_no = :batchNo)
-                        order by p.product_name asc, i.batch_no asc
+                          i.ma_kho as ma_kho,
+                          w.ten_kho as ten_kho,
+                          i.ma_san_pham as ma_san_pham,
+                          p.ten_san_pham as ten_san_pham,
+                          p.don_vi_tinh as don_vi_tinh,
+                          i.so_lo as so_lo,
+                          i.so_luong as so_luong,
+                          coalesce(function_gia_tri_ton_kho_theo_lo(i.ma_kho, i.ma_san_pham, i.so_lo), 0) as gia_tri_lo,
+                          i.cap_nhat_luc as cap_nhat_luc
+                        from ton_kho i
+                        join san_pham p on p.ma_san_pham = i.ma_san_pham
+                        join kho w on w.ma_kho = i.ma_kho
+                        where p.ma_khach_hang = :customerId
+                          and p.da_xoa = false
+                          and (:warehouseId is null or i.ma_kho = :warehouseId)
+                          and (:productId is null or i.ma_san_pham = :productId)
+                          and (:batchNo is null or i.so_lo = :batchNo)
+                        order by p.ten_san_pham asc, i.so_lo asc
                         """,
                 parameters,
                 (resultSet, rowNum) -> new InventoryResponse(
-                        resultSet.getInt("WarehouseId"),
-                        resultSet.getString("WarehouseName"),
-                        resultSet.getInt("ProductId"),
-                        resultSet.getString("ProductName"),
-                        resultSet.getString("UnitOfMeasure"),
-                        resultSet.getString("BatchNo"),
-                        resultSet.getInt("Quantity"),
-                        resultSet.getBigDecimal("BatchValue"),
-                        toLocalDateTime(resultSet, "LastUpdated")
+                        resultSet.getInt("ma_kho"),
+                        resultSet.getString("ten_kho"),
+                        resultSet.getInt("ma_san_pham"),
+                        resultSet.getString("ten_san_pham"),
+                        resultSet.getString("don_vi_tinh"),
+                        resultSet.getString("so_lo"),
+                        resultSet.getInt("so_luong"),
+                        resultSet.getBigDecimal("gia_tri_lo"),
+                        toLocalDateTime(resultSet, "cap_nhat_luc")
                 ));
     }
 
@@ -121,33 +121,33 @@ public class DbmsJdbcRepository {
 
         return namedParameterJdbcTemplate.query("""
                         select
-                          receipt_id as ReceiptId,
-                          warehouse_id as WarehouseId,
-                          warehouse_name as WarehouseName,
-                          supplier_id as SupplierId,
-                          supplier_name as SupplierName,
-                          product_id as ProductId,
-                          product_name as ProductName,
-                          batch_no as BatchNo,
-                          current_quantity as CurrentQuantity,
-                          expiry_date as ExpiryDate
-                        from vw_expiring_batches
-                        where customer_id = :customerId
-                          and days_until_expiry between 0 and :daysAhead
-                        order by expiry_date asc, product_name asc, batch_no asc, receipt_id asc
+                          ma_phieu_nhap as ma_phieu_nhap,
+                          ma_kho as ma_kho,
+                          ten_kho as ten_kho,
+                          ma_nha_cung_cap as ma_nha_cung_cap,
+                          ten_nha_cung_cap as ten_nha_cung_cap,
+                          ma_san_pham as ma_san_pham,
+                          ten_san_pham as ten_san_pham,
+                          so_lo as so_lo,
+                          so_luong_hien_tai as so_luong_hien_tai,
+                          han_su_dung as han_su_dung
+                        from view_lo_hang_sap_het_han
+                        where ma_khach_hang = :customerId
+                          and so_ngay_con_lai between 0 and :daysAhead
+                        order by han_su_dung asc, ten_san_pham asc, so_lo asc, ma_phieu_nhap asc
                         """,
                 parameters,
                 (resultSet, rowNum) -> new ExpiringBatchResponse(
-                        resultSet.getInt("ReceiptId"),
-                        resultSet.getInt("WarehouseId"),
-                        resultSet.getString("WarehouseName"),
-                        resultSet.getInt("SupplierId"),
-                        resultSet.getString("SupplierName"),
-                        resultSet.getInt("ProductId"),
-                        resultSet.getString("ProductName"),
-                        resultSet.getString("BatchNo"),
-                        resultSet.getInt("CurrentQuantity"),
-                        resultSet.getObject("ExpiryDate", java.time.LocalDate.class)
+                        resultSet.getInt("ma_phieu_nhap"),
+                        resultSet.getInt("ma_kho"),
+                        resultSet.getString("ten_kho"),
+                        resultSet.getInt("ma_nha_cung_cap"),
+                        resultSet.getString("ten_nha_cung_cap"),
+                        resultSet.getInt("ma_san_pham"),
+                        resultSet.getString("ten_san_pham"),
+                        resultSet.getString("so_lo"),
+                        resultSet.getInt("so_luong_hien_tai"),
+                        resultSet.getObject("han_su_dung", java.time.LocalDate.class)
                 ));
     }
 
@@ -160,22 +160,22 @@ public class DbmsJdbcRepository {
 
         return namedParameterJdbcTemplate.query("""
                         select
-                          product_id as ProductId,
-                          product_name as ProductName,
-                          sum(total_quantity_exported) as TotalQuantity
-                        from vw_monthly_product_exports
-                        where customer_id = :customerId
-                          and export_year = :year
-                          and export_month = :month
-                        group by product_id, product_name
-                        order by TotalQuantity desc, sum(total_revenue) desc
+                          ma_san_pham as ma_san_pham,
+                          ten_san_pham as ten_san_pham,
+                          sum(tong_so_luong_xuat) as tong_so_luong
+                        from view_xuat_hang_theo_thang
+                        where ma_khach_hang = :customerId
+                          and nam_xuat = :year
+                          and thang_xuat = :month
+                        group by ma_san_pham, ten_san_pham
+                        order by tong_so_luong desc, sum(tong_doanh_thu) desc
                         limit :limit
                         """,
                 parameters,
                 (resultSet, rowNum) -> new TopProductResponse(
-                        resultSet.getInt("ProductId"),
-                        resultSet.getString("ProductName"),
-                        resultSet.getLong("TotalQuantity")
+                        resultSet.getInt("ma_san_pham"),
+                        resultSet.getString("ten_san_pham"),
+                        resultSet.getLong("tong_so_luong")
                 ));
     }
 
@@ -191,48 +191,48 @@ public class DbmsJdbcRepository {
 
         return namedParameterJdbcTemplate.query("""
                         select
-                          product_id as ProductId,
-                          product_name as ProductName,
-                          unit_of_measure as UnitOfMeasure,
-                          sum(total_quantity) as TotalQuantity
-                        from vw_inventory_summary
-                        where customer_id = :customerId
-                          and (:warehouseId is null or warehouse_id = :warehouseId)
-                          and (:productId is null or product_id = :productId)
-                        group by product_id, product_name, unit_of_measure
-                        order by product_name asc
+                          ma_san_pham as ma_san_pham,
+                          ten_san_pham as ten_san_pham,
+                          don_vi_tinh as don_vi_tinh,
+                          sum(tong_so_luong) as tong_so_luong
+                        from view_tong_hop_ton_kho
+                        where ma_khach_hang = :customerId
+                          and (:warehouseId is null or ma_kho = :warehouseId)
+                          and (:productId is null or ma_san_pham = :productId)
+                        group by ma_san_pham, ten_san_pham, don_vi_tinh
+                        order by ten_san_pham asc
                         """,
                 parameters,
                 (resultSet, rowNum) -> new InventorySummaryResponse(
-                        resultSet.getInt("ProductId"),
-                        resultSet.getString("ProductName"),
-                        resultSet.getString("UnitOfMeasure"),
-                        resultSet.getLong("TotalQuantity")
+                        resultSet.getInt("ma_san_pham"),
+                        resultSet.getString("ten_san_pham"),
+                        resultSet.getString("don_vi_tinh"),
+                        resultSet.getLong("tong_so_luong")
                 ));
     }
 
     public List<AdminCustomerResponse> findCurrentTenants(Integer adminId) {
         return jdbcTemplate.query("""
                         select distinct
-                          t.customer_id as CustomerId,
-                          t.customer_name as CustomerName,
-                          t.customer_user_name as UserName,
-                          t.customer_email as Email,
-                          t.phone_number as PhoneNumber,
-                          c.address as Address,
-                          c.created_at as CreatedAt
-                        from vw_current_tenants t
-                        join customer c on c.customer_id = t.customer_id
-                        where t.admin_id = ?
-                        order by t.customer_name asc
+                          t.ma_khach_hang as ma_khach_hang,
+                          t.ten_khach_hang as ten_khach_hang,
+                          t.ten_dang_nhap_khach_hang as ten_dang_nhap,
+                          t.email_khach_hang as email,
+                          t.so_dien_thoai as so_dien_thoai,
+                          c.dia_chi as dia_chi,
+                          c.tao_luc as tao_luc
+                        from view_khach_thue_hien_tai t
+                        join khach_hang c on c.ma_khach_hang = t.ma_khach_hang
+                        where t.ma_quan_tri_vien = ?
+                        order by t.ten_khach_hang asc
                         """,
                 (resultSet, rowNum) -> new AdminCustomerResponse(
-                        resultSet.getInt("CustomerId"),
-                        resultSet.getString("CustomerName"),
-                        resultSet.getString("UserName"),
-                        resultSet.getString("Email"),
-                        resultSet.getString("PhoneNumber"),
-                        resultSet.getString("Address"),
+                        resultSet.getInt("ma_khach_hang"),
+                        resultSet.getString("ten_khach_hang"),
+                        resultSet.getString("ten_dang_nhap"),
+                        resultSet.getString("email"),
+                        resultSet.getString("so_dien_thoai"),
+                        resultSet.getString("dia_chi"),
                         toLocalDateTime(resultSet)
                 ),
                 adminId
@@ -267,7 +267,7 @@ public class DbmsJdbcRepository {
     }
 
     private LocalDateTime toLocalDateTime(ResultSet resultSet) throws SQLException {
-        return toLocalDateTime(resultSet, "CreatedAt");
+        return toLocalDateTime(resultSet, "tao_luc");
     }
 
     private LocalDateTime toLocalDateTime(ResultSet resultSet, String columnName) throws SQLException {
@@ -279,3 +279,6 @@ public class DbmsJdbcRepository {
         void bind(CallableStatement statement) throws SQLException;
     }
 }
+
+
+
