@@ -18,6 +18,13 @@ public interface InventoryRepository extends JpaRepository<Inventory, InventoryI
     boolean existsByWarehouseId(@Param("warehouseId") Integer warehouseId);
 
     @Query("""
+            select count(inventory) > 0
+            from Inventory inventory
+            where inventory.id.productId = :productId
+            """)
+    boolean existsByProductId(@Param("productId") Integer productId);
+
+    @Query("""
             select inventory
             from Inventory inventory
             join fetch inventory.product product

@@ -12,6 +12,13 @@ import java.util.List;
 public interface OutboundIssueDetailRepository extends JpaRepository<OutboundIssueDetail, OutboundIssueDetailId> {
 
     @Query("""
+            select count(detail) > 0
+            from OutboundIssueDetail detail
+            where detail.id.productId = :productId
+            """)
+    boolean existsByProductId(@Param("productId") Integer productId);
+
+    @Query("""
             select detail
             from OutboundIssueDetail detail
             join fetch detail.product product

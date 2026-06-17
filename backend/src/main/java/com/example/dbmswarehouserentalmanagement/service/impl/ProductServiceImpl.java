@@ -5,9 +5,13 @@ import com.example.dbmswarehouserentalmanagement.dto.response.ProductResponse;
 import com.example.dbmswarehouserentalmanagement.entity.Category;
 import com.example.dbmswarehouserentalmanagement.entity.Customer;
 import com.example.dbmswarehouserentalmanagement.entity.Product;
+import com.example.dbmswarehouserentalmanagement.exception.ResourceConflictException;
 import com.example.dbmswarehouserentalmanagement.exception.ResourceNotFoundException;
 import com.example.dbmswarehouserentalmanagement.repository.CategoryRepository;
 import com.example.dbmswarehouserentalmanagement.repository.CustomerRepository;
+import com.example.dbmswarehouserentalmanagement.repository.InboundReceiptDetailRepository;
+import com.example.dbmswarehouserentalmanagement.repository.InventoryRepository;
+import com.example.dbmswarehouserentalmanagement.repository.OutboundIssueDetailRepository;
 import com.example.dbmswarehouserentalmanagement.repository.ProductRepository;
 import com.example.dbmswarehouserentalmanagement.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +27,9 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final CustomerRepository customerRepository;
+    private final InventoryRepository inventoryRepository;
+    private final InboundReceiptDetailRepository inboundReceiptDetailRepository;
+    private final OutboundIssueDetailRepository outboundIssueDetailRepository;
 
     @Override
     @Transactional
@@ -83,9 +90,22 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository
                 .findByProductIdAndCustomer_CustomerIdAndIsDeletedFalse(productId, customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        ensureProductCanBeDeleted(productId);
 
         product.setDeleted(true);
         productRepository.save(product);
+    }
+
+    private void ensureProductCanBeDeleted(Integer productId) {
+        if (inventoryRepository.existsByProductId(productId)) {
+            throw new ResourceConflictException("Product cannot be deleted because it still has inventory records");
+        }
+        if (inboundReceiptDetailRepository.existsByProductId(productId)) {
+            throw new ResourceConflictException("Product cannot be deleted because it is used in inbound receipts");
+        }
+        if (outboundIssueDetailRepository.existsByProductId(productId)) {
+            throw new ResourceConflictException("Product cannot be deleted because it is used in outbound issues");
+        }
     }
 
     private Customer resolveCustomer(Integer customerId) {

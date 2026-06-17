@@ -12,6 +12,13 @@ import java.util.List;
 public interface InboundReceiptDetailRepository extends JpaRepository<InboundReceiptDetail, InboundReceiptDetailId> {
 
     @Query("""
+            select count(detail) > 0
+            from InboundReceiptDetail detail
+            where detail.id.productId = :productId
+            """)
+    boolean existsByProductId(@Param("productId") Integer productId);
+
+    @Query("""
             select detail
             from InboundReceiptDetail detail
             join fetch detail.product product

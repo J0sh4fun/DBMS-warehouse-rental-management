@@ -622,7 +622,7 @@ export default function Inventory() {
                                 </button>
                                 <button
                                   onClick={async () => {
-                                    if (!confirm('Delete this product? Backend uses soft delete where configured.')) return;
+                                    if (!confirm('Delete this product? Products that already have inventory or receipt/issue history cannot be deleted.')) return;
                                     try {
                                       await customerApi.deleteProduct(product.productId);
                                       await load();
