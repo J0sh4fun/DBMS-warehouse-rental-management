@@ -49,6 +49,13 @@ function issueTotal(issue: OutboundIssueResponse) {
   return issue.details.reduce((sum, detail) => sum + Number(detail.sellingPrice || 0) * detail.quantity, 0);
 }
 
+function isInsufficientCompletionMessage(message: string) {
+  const normalized = message.trim().toLowerCase();
+  return normalized.includes('ton kho khong du')
+    || normalized.includes('cannot complete outbound issue')
+    || normalized.includes('please cancel this draft outbound issue');
+}
+
 export default function Orders() {
   const [buyers, setBuyers] = useState<BuyerResponse[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
@@ -144,6 +151,24 @@ export default function Orders() {
     }
     return '';
   }, [availableQuantityText, hasBatchContext, outboundForm.batchNo, requestedQuantity, selectedBatchInventory]);
+  const buildCompletionFailureMessage = (issueId: number, rawMessage: string) => {
+    if (!isInsufficientCompletionMessage(rawMessage)) {
+      return rawMessage;
+    }
+
+    const issue = issues.find((item) => item.issueId === issueId);
+    if (!issue || issue.details.length === 0) {
+      return 'Không thể hoàn tất phiếu xuất vì sản phẩm trong lô không còn đủ số lượng. Có thể một phiếu xuất khác đã được hoàn tất trước. Vui lòng hủy phiếu xuất draft này.';
+    }
+
+    if (issue.details.length === 1) {
+      const detail = issue.details[0];
+      const productName = detail.productName || productById.get(detail.productId)?.productName || `sản phẩm #${detail.productId}`;
+      return `Không thể hoàn tất phiếu xuất #${issueId} vì lô ${detail.batchNo} của ${productName} không còn đủ số lượng. Có thể một phiếu xuất khác đã được hoàn tất trước. Vui lòng hủy phiếu xuất draft này.`;
+    }
+
+    return `Không thể hoàn tất phiếu xuất #${issueId} vì một hoặc nhiều lô hàng không còn đủ số lượng. Có thể một phiếu xuất khác đã được hoàn tất trước. Vui lòng hủy phiếu xuất draft này.`;
+  };
 
   const resetBuyerForm = () => {
     setBuyerForm(buyerDefault);
@@ -211,7 +236,7 @@ export default function Orders() {
       await customerApi.completeOutboundIssue(issueId);
       await load();
     } catch (err) {
-      setError(formatError(err));
+      setError(buildCompletionFailureMessage(issueId, formatError(err)));
     }
   };
 

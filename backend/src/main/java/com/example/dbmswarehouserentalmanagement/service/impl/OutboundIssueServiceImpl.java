@@ -127,6 +127,7 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
             throw new IllegalStateException("Outbound issue has no details");
         }
 
+        validateInventoryAvailabilityForCompletion(customerId, issueId, issue.getWarehouse().getWarehouseId(), details);
         dbmsJdbcRepository.completeOutboundIssue(issueId);
         issue.setStatus(IssueStatus.Completed);
         return toResponse(issue, details);
@@ -249,10 +250,7 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
             Integer warehouseId,
             List<OutboundIssueDetail> details
     ) {
-        Map<String, Integer> inventoryByBatch = new HashMap<>();
-        for (InventoryResponse inventoryItem : dbmsJdbcRepository.findInventory(customerId, warehouseId, null, null)) {
-            inventoryByBatch.put(inventoryKey(inventoryItem.productId(), inventoryItem.batchNo()), inventoryItem.quantity());
-        }
+        Map<String, Integer> inventoryByBatch = loadInventoryByBatch(customerId, warehouseId);
 
         for (OutboundIssueDetail detail : details) {
             int availableQuantity = inventoryByBatch.getOrDefault(
@@ -272,6 +270,43 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
                 );
             }
         }
+    }
+
+    private void validateInventoryAvailabilityForCompletion(
+            Integer customerId,
+            Integer issueId,
+            Integer warehouseId,
+            List<OutboundIssueDetail> details
+    ) {
+        Map<String, Integer> inventoryByBatch = loadInventoryByBatch(customerId, warehouseId);
+
+        for (OutboundIssueDetail detail : details) {
+            int availableQuantity = inventoryByBatch.getOrDefault(
+                    inventoryKey(detail.getProduct().getProductId(), detail.getId().getBatchNo()),
+                    0
+            );
+            if (detail.getQuantity() > availableQuantity) {
+                throw new InsufficientInventoryException(
+                        "Cannot complete outbound issue "
+                                + issueId
+                                + " because batch "
+                                + detail.getId().getBatchNo()
+                                + " of product "
+                                + detail.getProduct().getProductName()
+                                + " only has "
+                                + availableQuantity
+                                + " items available now. Please cancel this draft outbound issue."
+                );
+            }
+        }
+    }
+
+    private Map<String, Integer> loadInventoryByBatch(Integer customerId, Integer warehouseId) {
+        Map<String, Integer> inventoryByBatch = new HashMap<>();
+        for (InventoryResponse inventoryItem : dbmsJdbcRepository.findInventory(customerId, warehouseId, null, null)) {
+            inventoryByBatch.put(inventoryKey(inventoryItem.productId(), inventoryItem.batchNo()), inventoryItem.quantity());
+        }
+        return inventoryByBatch;
     }
 
     private String normalizeBatchNo(String batchNo) {
