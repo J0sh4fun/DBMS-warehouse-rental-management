@@ -3,6 +3,7 @@ package com.example.dbmswarehouserentalmanagement.service.impl;
 import com.example.dbmswarehouserentalmanagement.dto.request.CreateOutboundIssueRequest;
 import com.example.dbmswarehouserentalmanagement.dto.request.OutboundIssueDetailRequest;
 import com.example.dbmswarehouserentalmanagement.dto.response.OutboundIssueDetailResponse;
+import com.example.dbmswarehouserentalmanagement.dto.response.InventoryResponse;
 import com.example.dbmswarehouserentalmanagement.dto.response.OutboundIssueResponse;
 import com.example.dbmswarehouserentalmanagement.dto.response.PagedResponse;
 import com.example.dbmswarehouserentalmanagement.entity.Buyer;
@@ -13,6 +14,7 @@ import com.example.dbmswarehouserentalmanagement.entity.Warehouse;
 import com.example.dbmswarehouserentalmanagement.entity.enums.IssueStatus;
 import com.example.dbmswarehouserentalmanagement.entity.enums.LeaseContractStatus;
 import com.example.dbmswarehouserentalmanagement.entity.id.OutboundIssueDetailId;
+import com.example.dbmswarehouserentalmanagement.exception.InsufficientInventoryException;
 import com.example.dbmswarehouserentalmanagement.exception.ResourceNotFoundException;
 import com.example.dbmswarehouserentalmanagement.repository.BuyerRepository;
 import com.example.dbmswarehouserentalmanagement.repository.DbmsJdbcRepository;
@@ -31,8 +33,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -72,6 +76,7 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
         OutboundIssue savedIssue = outboundIssueRepository.saveAndFlush(issue);
 
         List<OutboundIssueDetail> details = buildDetails(customerId, savedIssue, request.details());
+        validateDraftInventoryAvailability(customerId, savedIssue.getWarehouse().getWarehouseId(), details);
         outboundIssueDetailRepository.saveAll(details);
         outboundIssueDetailRepository.flush();
 
@@ -100,6 +105,7 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
         outboundIssueRepository.flush();
 
         List<OutboundIssueDetail> details = buildDetails(customerId, issue, request.details());
+        validateDraftInventoryAvailability(customerId, issue.getWarehouse().getWarehouseId(), details);
         outboundIssueDetailRepository.saveAll(details);
         return toResponse(issue, details);
     }
@@ -238,12 +244,46 @@ public class OutboundIssueServiceImpl implements OutboundIssueService {
         }
     }
 
+    private void validateDraftInventoryAvailability(
+            Integer customerId,
+            Integer warehouseId,
+            List<OutboundIssueDetail> details
+    ) {
+        Map<String, Integer> inventoryByBatch = new HashMap<>();
+        for (InventoryResponse inventoryItem : dbmsJdbcRepository.findInventory(customerId, warehouseId, null, null)) {
+            inventoryByBatch.put(inventoryKey(inventoryItem.productId(), inventoryItem.batchNo()), inventoryItem.quantity());
+        }
+
+        for (OutboundIssueDetail detail : details) {
+            int availableQuantity = inventoryByBatch.getOrDefault(
+                    inventoryKey(detail.getProduct().getProductId(), detail.getId().getBatchNo()),
+                    0
+            );
+            if (detail.getQuantity() > availableQuantity) {
+                throw new InsufficientInventoryException(
+                        "Available quantity for batch "
+                                + detail.getId().getBatchNo()
+                                + " of product "
+                                + detail.getProduct().getProductName()
+                                + " is "
+                                + availableQuantity
+                                + ", cannot create draft with quantity "
+                                + detail.getQuantity()
+                );
+            }
+        }
+    }
+
     private String normalizeBatchNo(String batchNo) {
         String normalized = batchNo == null ? "" : batchNo.trim();
         if (normalized.isBlank()) {
             throw new IllegalArgumentException("Batch number is required");
         }
         return normalized;
+    }
+
+    private String inventoryKey(Integer productId, String batchNo) {
+        return productId + "::" + batchNo;
     }
 
     private int normalizePageSize(int size) {

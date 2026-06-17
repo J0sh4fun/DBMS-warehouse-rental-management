@@ -41,6 +41,10 @@ function toDateTime(date: string) {
   return date ? `${date}T00:00:00` : undefined;
 }
 
+function normalizeBatchNo(batchNo: string) {
+  return batchNo.trim().toLowerCase();
+}
+
 function issueTotal(issue: OutboundIssueResponse) {
   return issue.details.reduce((sum, detail) => sum + Number(detail.sellingPrice || 0) * detail.quantity, 0);
 }
@@ -93,6 +97,17 @@ export default function Orders() {
     issues.forEach((issue) => map.set(issue.warehouseId, issue.warehouseName));
     return Array.from(map, ([warehouseId, warehouseName]) => ({ warehouseId, warehouseName }));
   }, [contracts, inventory, issues]);
+  const availableProducts = useMemo(() => {
+    const productsInStock = new Map<number, string>();
+    inventory
+      .filter(
+        (item) =>
+          (!outboundForm.warehouseId || item.warehouseId === Number(outboundForm.warehouseId)) &&
+          item.quantity > 0
+      )
+      .forEach((item) => productsInStock.set(item.productId, item.productName));
+    return Array.from(productsInStock, ([productId, productName]) => ({ productId, productName }));
+  }, [inventory, outboundForm.warehouseId]);
 
   const batchOptions = useMemo(
     () =>
@@ -104,6 +119,31 @@ export default function Orders() {
       ),
     [inventory, outboundForm.productId, outboundForm.warehouseId]
   );
+  const normalizedBatchNo = normalizeBatchNo(outboundForm.batchNo);
+  const selectedBatchInventory = useMemo(
+    () => batchOptions.find((item) => normalizeBatchNo(item.batchNo) === normalizedBatchNo),
+    [batchOptions, normalizedBatchNo]
+  );
+  const requestedQuantity = Number(outboundForm.quantity);
+  const hasBatchContext = Boolean(outboundForm.productId && outboundForm.warehouseId);
+  const availableQuantityText = selectedBatchInventory
+    ? `${formatNumber(selectedBatchInventory.quantity)} ${selectedBatchInventory.unitOfMeasure}`
+    : '';
+  const outboundValidationMessage = useMemo(() => {
+    if (!hasBatchContext || !outboundForm.batchNo.trim()) {
+      return '';
+    }
+    if (!selectedBatchInventory) {
+      return 'Selected batch is not available for this product in the chosen warehouse.';
+    }
+    if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
+      return '';
+    }
+    if (requestedQuantity > selectedBatchInventory.quantity) {
+      return `Requested quantity exceeds available quantity (${availableQuantityText}).`;
+    }
+    return '';
+  }, [availableQuantityText, hasBatchContext, outboundForm.batchNo, requestedQuantity, selectedBatchInventory]);
 
   const resetBuyerForm = () => {
     setBuyerForm(buyerDefault);
@@ -131,8 +171,16 @@ export default function Orders() {
 
   const handleOutboundSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setSaving(true);
     setError('');
+    if (!selectedBatchInventory) {
+      setError('Please choose a valid batch with available inventory before creating the draft.');
+      return;
+    }
+    if (outboundValidationMessage) {
+      setError(outboundValidationMessage);
+      return;
+    }
+    setSaving(true);
     try {
       await customerApi.createOutboundIssue({
         warehouseId: Number(outboundForm.warehouseId),
@@ -222,7 +270,7 @@ export default function Orders() {
                     <PackageMinus className="h-5 w-5" />
                     New Outbound Issue
                   </CardTitle>
-                  <CardDescription>Create as Draft, then complete to subtract inventory.</CardDescription>
+                  <CardDescription>Create as Draft after choosing a batch with enough available inventory.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleOutboundSubmit} className="space-y-4">
@@ -231,7 +279,7 @@ export default function Orders() {
                       <select
                         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                         value={outboundForm.warehouseId}
-                        onChange={(event) => setOutboundForm({ ...outboundForm, warehouseId: event.target.value, batchNo: '' })}
+                        onChange={(event) => setOutboundForm({ ...outboundForm, warehouseId: event.target.value, productId: '', batchNo: '' })}
                         required
                       >
                         <option value="">Select leased warehouse</option>
@@ -262,37 +310,65 @@ export default function Orders() {
                     </div>
                     <div className="space-y-2">
                       <Label>Product</Label>
-                      <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={outboundForm.productId} onChange={(event) => setOutboundForm({ ...outboundForm, productId: event.target.value, batchNo: '' })} required>
-                        <option value="">Select product</option>
-                        {products.map((product) => (
+                      <select
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                        value={outboundForm.productId}
+                        onChange={(event) => setOutboundForm({ ...outboundForm, productId: event.target.value, batchNo: '' })}
+                        disabled={!outboundForm.warehouseId || availableProducts.length === 0}
+                        required
+                      >
+                        <option value="">{outboundForm.warehouseId ? 'Select available product' : 'Select warehouse first'}</option>
+                        {availableProducts.map((product) => (
                           <option key={product.productId} value={product.productId}>
                             {product.productName}
                           </option>
                         ))}
                       </select>
+                      {outboundForm.warehouseId && availableProducts.length === 0 && (
+                        <p className="text-xs text-muted-foreground">No available products found in this warehouse. Draft inbound batches are not exportable until completed.</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label>Batch No</Label>
                       <Input list="batch-options" value={outboundForm.batchNo} onChange={(event) => setOutboundForm({ ...outboundForm, batchNo: event.target.value })} required />
                       <datalist id="batch-options">
                         {batchOptions.map((item) => (
-                          <option key={`${item.warehouseId}-${item.productId}-${item.batchNo}`} value={item.batchNo}>
-                            {item.productName} / {item.warehouseName} / {formatNumber(item.quantity)}
-                          </option>
+                          <option
+                            key={`${item.warehouseId}-${item.productId}-${item.batchNo}`}
+                            value={item.batchNo}
+                            label={`${item.productName} / ${item.warehouseName} / Available ${formatNumber(item.quantity)} ${item.unitOfMeasure}`}
+                          />
                         ))}
                       </datalist>
+                      {!hasBatchContext && <p className="text-xs text-muted-foreground">Select warehouse and product to load available batches.</p>}
+                      {hasBatchContext && batchOptions.length === 0 && <p className="text-xs text-muted-foreground">No available batches found for this product in the chosen warehouse.</p>}
+                      {selectedBatchInventory && <p className="text-xs text-muted-foreground">Available quantity: {availableQuantityText}</p>}
+                      {hasBatchContext && outboundForm.batchNo.trim() && !selectedBatchInventory && (
+                        <p className="text-xs text-destructive">This batch is not currently available for the selected warehouse and product.</p>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label>Quantity</Label>
-                        <Input type="number" min="1" value={outboundForm.quantity} onChange={(event) => setOutboundForm({ ...outboundForm, quantity: event.target.value })} required />
+                        <Input
+                          type="number"
+                          min="1"
+                          max={selectedBatchInventory?.quantity}
+                          value={outboundForm.quantity}
+                          onChange={(event) => setOutboundForm({ ...outboundForm, quantity: event.target.value })}
+                          required
+                        />
+                        {selectedBatchInventory && outboundValidationMessage && <p className="text-xs text-destructive">{outboundValidationMessage}</p>}
                       </div>
                       <div className="space-y-2">
                         <Label>Selling Price</Label>
                         <Input type="number" min="0" step="0.01" value={outboundForm.sellingPrice} onChange={(event) => setOutboundForm({ ...outboundForm, sellingPrice: event.target.value })} required />
                       </div>
                     </div>
-                    <Button type="submit" disabled={saving || warehouseOptions.length === 0 || buyers.length === 0 || products.length === 0}>
+                    <Button
+                      type="submit"
+                      disabled={saving || warehouseOptions.length === 0 || buyers.length === 0 || products.length === 0 || Boolean(outboundValidationMessage)}
+                    >
                       <Plus className="h-4 w-4" />
                       {saving ? 'Saving...' : 'Create Draft'}
                     </Button>
