@@ -158,16 +158,16 @@ export default function Orders() {
 
     const issue = issues.find((item) => item.issueId === issueId);
     if (!issue || issue.details.length === 0) {
-      return 'Không thể hoàn tất phiếu xuất vì sản phẩm trong lô không còn đủ số lượng. Có thể một phiếu xuất khác đã được hoàn tất trước. Vui lòng hủy phiếu xuất draft này.';
+      return 'Cannot complete this outbound issue because the batch no longer has enough quantity available. Another outbound issue may have been completed first. Please cancel this draft outbound issue.';
     }
 
     if (issue.details.length === 1) {
       const detail = issue.details[0];
-      const productName = detail.productName || productById.get(detail.productId)?.productName || `sản phẩm #${detail.productId}`;
-      return `Không thể hoàn tất phiếu xuất #${issueId} vì lô ${detail.batchNo} của ${productName} không còn đủ số lượng. Có thể một phiếu xuất khác đã được hoàn tất trước. Vui lòng hủy phiếu xuất draft này.`;
+      const productName = detail.productName || productById.get(detail.productId)?.productName || `product #${detail.productId}`;
+      return `Cannot complete outbound issue #${issueId} because batch ${detail.batchNo} for ${productName} no longer has enough quantity available. Another outbound issue may have been completed first. Please cancel this draft outbound issue.`;
     }
 
-    return `Không thể hoàn tất phiếu xuất #${issueId} vì một hoặc nhiều lô hàng không còn đủ số lượng. Có thể một phiếu xuất khác đã được hoàn tất trước. Vui lòng hủy phiếu xuất draft này.`;
+    return `Cannot complete outbound issue #${issueId} because one or more batches no longer have enough quantity available. Another outbound issue may have been completed first. Please cancel this draft outbound issue.`;
   };
 
   const resetBuyerForm = () => {
